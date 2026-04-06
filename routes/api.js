@@ -9,7 +9,7 @@ const { scrapeOgImages } = require('../services/og');
 router.get('/news', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM news_items WHERE status IN ('free','reserved','dismissed','slack_taken') ORDER BY published_at DESC"
+      "SELECT * FROM news_items WHERE status IN ('free','reserved','produced','dismissed','slack_taken') ORDER BY published_at DESC"
     );
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -64,7 +64,7 @@ router.post('/news/:id/reserve', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Produce - send to Make.com webhook, no status change
+// Produce - send to Make.com webhook, mark as produced
 router.post('/news/:id/produce', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM news_items WHERE id=$1', [req.params.id]);
@@ -72,13 +72,15 @@ router.post('/news/:id/produce', async (req, res) => {
     if (!item) return res.status(404).json({ error: 'Not found' });
 
     const makeUrl = process.env.MAKE_WEBHOOK_URL;
-    if (!makeUrl) return res.status(501).json({ error: 'MAKE_WEBHOOK_URL not set' });
+    if (makeUrl) {
+      const r = await fetch(makeUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: item.url })
+      });
+      if (!r.ok) console.error('[Make] Webhook returned:', r.status);
+    }
 
-    const r = await fetch(makeUrl, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: item.url })
-    });
-    if (!r.ok) throw new Error(`Make: ${r.status}`);
+    await pool.query("UPDATE news_items SET status='produced' WHERE id=$1", [item.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
