@@ -7,9 +7,26 @@ const { scrapeOgImages } = require('./og');
 let lastRun = null, isRunning = false, isRefiltering = false;
 
 async function getInstructions() {
-  const { rows } = await pool.query("SELECT key, value FROM settings WHERE key IN ('router_instructions','temperature_instructions')");
+  const { rows } = await pool.query("SELECT key, value FROM settings WHERE key IN ('router_instructions','temperature_instructions','training_good','training_bad')");
   const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
-  return { router: map.router_instructions || '', temperature: map.temperature_instructions || '' };
+
+  let router = map.router_instructions || '';
+
+  // Append training examples to router instructions
+  try {
+    const good = JSON.parse(map.training_good || '[]');
+    const bad = JSON.parse(map.training_bad || '[]');
+    if (good.length) {
+      router += '\n\nPRZYKŁADY DOBRYCH NEWSÓW - ucz się z nich, podobne tematy oceniaj wysoko:\n' +
+        good.map(e => `- "${e.title}" (temperatura: ${e.temperature}) - ${e.reason}`).join('\n');
+    }
+    if (bad.length) {
+      router += '\n\nPRZYKŁADY ZŁYCH NEWSÓW - odrzucaj podobne tematy:\n' +
+        bad.map(e => `- "${e.title}" - ${e.reason}`).join('\n');
+    }
+  } catch {}
+
+  return { router, temperature: map.temperature_instructions || '' };
 }
 
 function cleanTitle(t) { if (!t) return ''; if (t.trim().startsWith('http') || /<[^>]+>/.test(t)) return ''; return t.trim(); }

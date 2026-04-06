@@ -201,7 +201,7 @@ footer .in{max-width:1100px;margin:0 auto;padding:14px 24px;display:flex;justify
 <footer><div class="in m"><span>pulsar</span><span>v4.1</span></div></footer>
 
 <script>
-const S={tab:'free',items:[],taken:[],feeds:[],stats:{},pipeline:{},allDays:false,sort:'temp'};
+const S={tab:'free',items:[],taken:[],feeds:[],stats:{},pipeline:{},allDays:false,sort:'temp',goodEx:[],badEx:[]};
 function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function ago(t){if(!t)return'—';const d=Math.floor((Date.now()-new Date(t))/1000);if(d<60)return'teraz';if(d<3600)return Math.floor(d/60)+'m';if(d<86400)return Math.floor(d/3600)+'h';return Math.floor(d/86400)+'d'}
 function fmtD(t){if(!t)return'—';return new Date(t).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}
@@ -260,7 +260,108 @@ async function refilter(){const b=document.getElementById('refilterBtn');b.textC
 async function addFeed(){const u=document.getElementById('nUrl').value.trim(),n=document.getElementById('nName').value.trim();if(!u)return;const r=await fetch('/api/feeds',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u,name:n})});if(r.ok){document.getElementById('nUrl').value='';document.getElementById('nName').value='';await load()}else{const d=await r.json();showErr(d.error)}}
 async function toggleFeed(id){await fetch('/api/feeds/'+id+'/toggle',{method:'PATCH'});await load()}
 async function delFeed(id){if(!confirm('Usunąć?'))return;await fetch('/api/feeds/'+id,{method:'DELETE'});await load()}
-async function loadSettings(){const[r,t]=await Promise.all([fetch('/api/settings/router_instructions').then(r=>r.json()),fetch('/api/settings/temperature_instructions').then(r=>r.json())]);const a=document.getElementById('routerTa'),b=document.getElementById('tempTa');if(a)a.value=r.value||'';if(b)b.value=t.value||''}
+async function loadSettings(){
+  const[r,t,g,b]=await Promise.all([
+    fetch('/api/settings/router_instructions').then(r=>r.json()),
+    fetch('/api/settings/temperature_instructions').then(r=>r.json()),
+    fetch('/api/settings/training_good').then(r=>r.json()),
+    fetch('/api/settings/training_bad').then(r=>r.json())
+  ]);
+  const ra=document.getElementById('routerTa'),ta=document.getElementById('tempTa');
+  if(ra)ra.value=r.value||'';
+  if(ta)ta.value=t.value||'';
+  try{S.goodEx=JSON.parse(g.value||'[]')}catch{S.goodEx=[]}
+  try{S.badEx=JSON.parse(b.value||'[]')}catch{S.badEx=[]}
+  renderTraining();
+}
+
+function renderTraining(){
+  const gel=document.getElementById('goodList');
+  const bel=document.getElementById('badList');
+  if(!gel||!bel)return;
+
+  gel.innerHTML=S.goodEx.length?S.goodEx.map((e,i)=>
+    '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)">'+
+    '<div style="flex:1"><div style="font-size:14px;font-weight:600">'+esc(e.title)+'</div>'+
+    '<div style="font-size:13px;color:var(--muted);margin-top:2px">'+esc(e.reason)+'</div></div>'+
+    '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+arcSvg(e.temperature)+
+    '<button class="btn" onclick="delTraining(\'good\','+i+')" style="color:var(--red);font-size:12px">usuń</button></div></div>'
+  ).join(''):'<div style="color:var(--dim);font-size:13px;padding:12px 0">Brak przykładów. Dodaj pierwszy.</div>';
+
+  bel.innerHTML=S.badEx.length?S.badEx.map((e,i)=>
+    '<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)">'+
+    '<div style="flex:1"><div style="font-size:14px;font-weight:600">'+esc(e.title)+'</div>'+
+    '<div style="font-size:13px;color:var(--muted);margin-top:2px">'+esc(e.reason)+'</div></div>'+
+    '<button class="btn" onclick="delTraining(\'bad\','+i+')" style="color:var(--red);font-size:12px">usuń</button></div>'
+  ).join(''):'<div style="color:var(--dim);font-size:13px;padding:12px 0">Brak przykładów. Dodaj pierwszy.</div>';
+}
+
+async function addTraining(type){
+  const title=document.getElementById(type+'Title').value.trim();
+  const reason=document.getElementById(type+'Reason').value.trim();
+  if(!title||!reason)return;
+
+  if(type==='good'){
+    const temp=parseInt(document.getElementById('goodTemp').value)||7;
+    S.goodEx.push({title,temperature:Math.min(10,Math.max(1,temp)),reason});
+    await fetch('/api/settings/training_good',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:JSON.stringify(S.goodEx)})});
+  }else{
+    S.badEx.push({title,reason});
+    await fetch('/api/settings/training_bad',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:JSON.stringify(S.badEx)})});
+  }
+  document.getElementById(type+'Title').value='';
+  document.getElementById(type+'Reason').value='';
+  if(type==='good')document.getElementById('goodTemp').value='7';
+  renderTraining();
+}
+
+async function delTraining(type,idx){
+  if(type==='good'){
+    S.goodEx.splice(idx,1);
+    await fetch('/api/settings/training_good',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:JSON.stringify(S.goodEx)})});
+  }else{
+    S.badEx.splice(idx,1);
+    await fetch('/api/settings/training_bad',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:JSON.stringify(S.badEx)})});
+  }
+  renderTraining();
+}
+
+function renderSettings(){
+  setH(document.getElementById('v-settings'),
+  '<div class="panel">'+
+
+  '<div class="st-block"><div class="st-lbl" style="font-size:18px;margin-bottom:2px">Uczenie filtra AI</div>'+
+  '<div class="st-hint">Dodawaj przykłady dobrych i złych newsów. AI uczy się z nich przy każdym uruchomieniu pipeline.</div></div>'+
+
+  '<div class="st-block"><div class="st-lbl" style="color:#16a34a">Dobre przykłady</div>'+
+  '<div class="st-hint">Newsy, które chcesz widzieć wysoko. Podaj tytuł, ocenę potencjału i powód.</div>'+
+  '<div id="goodList"></div>'+
+  '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
+    '<input class="fd-in" id="goodTitle" placeholder="Tytuł newsa" style="flex:2;min-width:200px">'+
+    '<input class="fd-in" id="goodTemp" type="number" min="1" max="10" value="7" style="width:60px" placeholder="1-10">'+
+    '<input class="fd-in" id="goodReason" placeholder="Dlaczego dobry?" style="flex:2;min-width:200px">'+
+    '<button class="btn btn-p" onclick="addTraining(\'good\')" style="background:#16a34a;border-color:#16a34a">+ dodaj</button>'+
+  '</div></div>'+
+
+  '<div class="st-block"><div class="st-lbl" style="color:var(--red)">Złe przykłady</div>'+
+  '<div class="st-hint">Newsy, które powinny być odrzucane. Podaj tytuł i powód odrzucenia.</div>'+
+  '<div id="badList"></div>'+
+  '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
+    '<input class="fd-in" id="badTitle" placeholder="Tytuł newsa" style="flex:2;min-width:200px">'+
+    '<input class="fd-in" id="badReason" placeholder="Dlaczego zły?" style="flex:2;min-width:200px">'+
+    '<button class="btn btn-p" onclick="addTraining(\'bad\')" style="background:var(--red);border-color:var(--red)">+ dodaj</button>'+
+  '</div></div>'+
+
+  '<div class="st-block" style="border-top:3px solid var(--border)"><div class="st-lbl">Router instructions</div><div class="st-hint">Zasady filtrowania i grupowania</div><textarea class="st-ta" id="routerTa" style="min-height:200px"></textarea><div style="margin-top:10px"><button class="btn" id="saveRBtn" onclick="saveSetting(\'router_instructions\',\'routerTa\',\'saveRBtn\')">zapisz</button></div></div>'+
+
+  '<div class="st-block"><div class="st-lbl">Temperature instructions</div><div class="st-hint">Skala oceny potencjału (1-10)</div><textarea class="st-ta" id="tempTa" style="min-height:160px"></textarea><div style="margin-top:10px"><button class="btn" id="saveTBtn" onclick="saveSetting(\'temperature_instructions\',\'tempTa\',\'saveTBtn\')">zapisz</button></div></div>'+
+
+  '<div class="st-block" style="display:flex;align-items:center;gap:14px"><button class="btn btn-p" id="refilterBtn" onclick="refilter()">przefiltruj</button><span style="font-size:13px;color:var(--dim)">Ponownie klastruje wolne newsy</span></div>'+
+
+  '</div>');
+  loadSettings();
+}
+
 async function saveSetting(k,tid,bid){const v=document.getElementById(tid).value,b=document.getElementById(bid);b.textContent='...';b.disabled=true;await fetch('/api/settings/'+k,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='ok';setTimeout(()=>{b.textContent='zapisz';b.disabled=false},2000)}
 async function doRestore(id){try{const r=await fetch('/api/news/'+id+'/restore',{method:'POST'});if(!r.ok){const d=await r.json();throw new Error(d.error)}await loadRejected();await load()}catch(e){showErr(e.message)}}
 function setSort(s){S.sort=s;renderFree()}
@@ -370,11 +471,6 @@ function renderFeeds(){
   const el=document.getElementById('v-feeds');
   const rows=S.feeds.map(f=>'<div class="fd-row"><div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:500">'+esc(f.name)+'</div><div class="m" style="font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(f.url)+'</div></div><span class="m" style="font-size:12px;font-weight:600;color:'+(f.active?'var(--green)':'#999')+'">'+(f.active?'ON':'OFF')+'</span><label class="cf-toggle"><input type="checkbox" '+(f.active?'checked':'')+' onchange="toggleFeed('+f.id+')"><span class="cf-toggle-sl"></span></label><button class="btn" onclick="delFeed('+f.id+')" style="color:var(--red)">usuń</button></div>').join('');
   setH(el,'<div class="panel">'+(rows||'<div class="empty">Brak feedów</div>')+'<div class="fd-form"><input class="fd-in" id="nUrl" type="url" placeholder="https://..." style="flex:2"><input class="fd-in" id="nName" type="text" placeholder="Nazwa" style="flex:1"><button class="btn btn-p" onclick="addFeed()">+ dodaj</button></div></div>');
-}
-
-function renderSettings(){
-  setH(document.getElementById('v-settings'),'<div class="panel"><div class="st-block"><div class="st-lbl">Router instructions</div><div class="st-hint">Zasady filtrowania i grupowania</div><textarea class="st-ta" id="routerTa" style="min-height:200px"></textarea><div style="margin-top:10px"><button class="btn" id="saveRBtn" onclick="saveSetting(\'router_instructions\',\'routerTa\',\'saveRBtn\')">zapisz</button></div></div><div class="st-block"><div class="st-lbl">Temperature instructions</div><div class="st-hint">Skala oceny potencjału (1-10)</div><textarea class="st-ta" id="tempTa" style="min-height:160px"></textarea><div style="margin-top:10px"><button class="btn" id="saveTBtn" onclick="saveSetting(\'temperature_instructions\',\'tempTa\',\'saveTBtn\')">zapisz</button></div></div><div class="st-block" style="display:flex;align-items:center;gap:14px"><button class="btn btn-p" id="refilterBtn" onclick="refilter()">przefiltruj</button><span style="font-size:13px;color:var(--dim)">Ponownie klastruje wolne newsy</span></div></div>');
-  loadSettings();
 }
 
 const tabN={free:'Wolne newsy',taken:'Wzięte',rejected:'Odrzucone',kanal:'Kanał',feeds:'Feedy',settings:'Ustawienia'};
