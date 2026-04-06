@@ -51,16 +51,46 @@ router.post('/news/:id/take', async (req, res) => {
     if (!item) return res.status(404).json({ error: 'Not found' });
     if (item.status === 'taken') return res.status(409).json({ error: 'Already taken' });
     if (item.status === 'slack_taken') return res.status(409).json({ error: 'Zajęte przez: ' + (item.reserved_by || 'kogoś') });
-    await postToSlack(item.url);
-    if (process.env.MAKE_WEBHOOK_URL) {
-      fetch(process.env.MAKE_WEBHOOK_URL, {
+
+    try {
+      await postToSlack(item.url);
+    } catch (slackErr) {
+      console.error('[Take] Slack post failed:', slackErr.message);
+      return res.status(502).json({ error: 'Nie udało się wysłać na Slacka: ' + slackErr.message });
+    }
+
+    const makeUrl = process.env.MAKE_WEBHOOK_URL;
+    if (makeUrl) {
+      fetch(makeUrl, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: item.url })
-      }).catch(e => console.error('[Make]', e.message));
+      }).catch(e => console.error('[Make] Webhook failed:', e.message));
     }
     await pool.query("UPDATE news_items SET status='taken' WHERE id=$1", [item.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Manual URL send - webhook via backend
+router.post('/manual-send', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'URL is required' });
+  try { new URL(url); } catch {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
+  const makeUrl = process.env.MAKE_WEBHOOK_URL;
+  if (!makeUrl) return res.status(501).json({ error: 'MAKE_WEBHOOK_URL not configured' });
+  try {
+    const r = await fetch(makeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    if (!r.ok) throw new Error(`Make responded with ${r.status}`);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(502).json({ error: 'Make webhook failed: ' + e.message });
+  }
 });
 
 router.get('/feeds', async (req, res) => {
