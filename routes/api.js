@@ -9,7 +9,7 @@ const { scrapeOgImages } = require('../services/og');
 router.get('/news', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM news_items WHERE status IN ('free','reserved','slack_taken') ORDER BY published_at DESC"
+      "SELECT * FROM news_items WHERE status IN ('free','reserved','dismissed','slack_taken') ORDER BY published_at DESC"
     );
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -35,14 +35,14 @@ router.get('/news/rejected', async (req, res) => {
 
 // --- ACTIONS ---
 
-// Bookmark toggle
-router.post('/news/:id/bookmark', async (req, res) => {
+// Dismiss - gray out card, stays in view
+router.post('/news/:id/dismiss', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'UPDATE news_items SET bookmarked = NOT bookmarked WHERE id=$1 RETURNING bookmarked', [req.params.id]
+      "UPDATE news_items SET status='dismissed' WHERE id=$1 AND status IN ('free','reserved') RETURNING *", [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
-    res.json({ ok: true, bookmarked: rows[0].bookmarked });
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -64,7 +64,7 @@ router.post('/news/:id/reserve', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Produce - send to Make.com webhook
+// Produce - send to Make.com webhook, no status change
 router.post('/news/:id/produce', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM news_items WHERE id=$1', [req.params.id]);
@@ -79,8 +79,6 @@ router.post('/news/:id/produce', async (req, res) => {
       body: JSON.stringify({ url: item.url })
     });
     if (!r.ok) throw new Error(`Make: ${r.status}`);
-
-    await pool.query("UPDATE news_items SET status='produced' WHERE id=$1", [item.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
