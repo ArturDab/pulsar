@@ -2,6 +2,7 @@ const { pool } = require('../db');
 const { fetchFeed } = require('./rss');
 const { getSlackUrlMap } = require('./slack');
 const { filterAndCluster, reclusterAndRescore } = require('./gemini');
+const { scrapeOgImages } = require('./og');
 
 let lastRun = null;
 let isRunning = false;
@@ -180,6 +181,9 @@ async function runPipeline() {
     if (unmatched > 0) console.warn(`[Pipeline] ${unmatched}/${processed.length} URL mismatches`);
     await closeRun(runId, newItems.length, saved);
     console.log(`[Pipeline] Done: ${saved} saved, ${rejected} rejected, ${unmatched} unmatched`);
+
+    // Fire-and-forget OG image scraping
+    scrapeOgImages().catch(e => console.error('[Pipeline] OG scraping failed:', e.message));
 
   } catch (err) {
     console.error('[Pipeline] Fatal:', err.message);

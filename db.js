@@ -94,6 +94,7 @@ async function initDb() {
   await pool.query(`
     ALTER TABLE news_items ADD COLUMN IF NOT EXISTS reserved_by TEXT;
     ALTER TABLE news_items ADD COLUMN IF NOT EXISTS temperature INT DEFAULT 5;
+    ALTER TABLE news_items ADD COLUMN IF NOT EXISTS og_image TEXT;
   `).catch(() => {});
 
   console.log('[DB] Ready');
