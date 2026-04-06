@@ -4,138 +4,73 @@ const { getSlackUrlMap } = require('./slack');
 const { filterAndCluster, reclusterAndRescore } = require('./gemini');
 const { scrapeOgImages } = require('./og');
 
-let lastRun = null;
-let isRunning = false;
-let isRefiltering = false;
+let lastRun = null, isRunning = false, isRefiltering = false;
 
 async function getInstructions() {
-  const { rows } = await pool.query(
-    "SELECT key, value FROM settings WHERE key IN ('router_instructions','temperature_instructions')"
-  );
+  const { rows } = await pool.query("SELECT key, value FROM settings WHERE key IN ('router_instructions','temperature_instructions')");
   const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
   return { router: map.router_instructions || '', temperature: map.temperature_instructions || '' };
 }
 
-function cleanTitle(title) {
-  if (!title) return '';
-  if (title.trim().startsWith('http')) return '';
-  if (/<[^>]+>/.test(title)) return '';
-  return title.trim();
-}
+function cleanTitle(t) { if (!t) return ''; if (t.trim().startsWith('http') || /<[^>]+>/.test(t)) return ''; return t.trim(); }
 
-// Normalizacja URL do porównań - Gemini lubi modyfikować URLe
 function normUrl(url) {
   if (!url) return '';
-  try {
-    const u = new URL(url);
-    // Usuń trailing slash, fragment, sortuj parametry
-    u.hash = '';
-    let path = u.pathname.replace(/\/+$/, '') || '/';
-    return (u.origin + path + u.search).toLowerCase();
-  } catch {
-    return url.toLowerCase().replace(/\/+$/, '');
-  }
+  try { const u = new URL(url); u.hash = ''; return (u.origin + u.pathname.replace(/\/+$/, '') + u.search).toLowerCase(); }
+  catch { return url.toLowerCase().replace(/\/+$/, ''); }
 }
 
-// Buduje mapę normalizedUrl → original item dla szybkiego i odpornego matchowania
 function buildUrlMap(items) {
-  const map = new Map();
-  for (const item of items) {
-    map.set(normUrl(item.url), item);
-  }
-  return map;
+  const m = new Map();
+  for (const i of items) m.set(normUrl(i.url), i);
+  return m;
 }
 
-function findOriginal(urlMap, geminiUrl) {
-  // Dokładne dopasowanie po normalizacji
-  const norm = normUrl(geminiUrl);
-  if (urlMap.has(norm)) return urlMap.get(norm);
-  // Fallback: szukaj po zawieraniu (Gemini czasem ucina query string)
-  for (const [key, item] of urlMap) {
-    if (key.includes(norm) || norm.includes(key)) return item;
-  }
+function findOriginal(map, url) {
+  const n = normUrl(url);
+  if (map.has(n)) return map.get(n);
+  for (const [k, v] of map) { if (k.includes(n) || n.includes(k)) return v; }
   return null;
 }
 
 async function runPipeline() {
-  if (isRunning) { console.log('[Pipeline] Already running'); return; }
+  if (isRunning) return;
   isRunning = true;
-
   let runId = null;
+
   try {
     const { rows: [run] } = await pool.query('INSERT INTO pipeline_runs DEFAULT VALUES RETURNING id');
     runId = run.id;
-  } catch (err) {
-    console.error('[Pipeline] Cannot create run:', err.message);
-    isRunning = false;
-    return;
-  }
 
-  try {
     const { rows: feeds } = await pool.query('SELECT url, name FROM feeds WHERE active = true');
-    if (!feeds.length) {
-      console.log('[Pipeline] No active feeds');
-      await closeRun(runId, 0, 0);
-      return;
-    }
+    if (!feeds.length) { await closeRun(runId, 0, 0); return; }
 
-    // Pobierz itemy z RSS
     let allItems = [];
     for (const feed of feeds) {
-      try {
-        const items = await fetchFeed(feed.url);
-        allItems.push(...items);
-      } catch (err) {
-        console.error(`[Pipeline] Feed error ${feed.name}: ${err.message}`);
-      }
+      try { allItems.push(...await fetchFeed(feed.url)); } catch (e) { console.error(`[Pipeline] Feed error: ${e.message}`); }
     }
     console.log(`[Pipeline] Fetched ${allItems.length} items from ${feeds.length} feeds`);
 
-    if (!allItems.length) {
-      await closeRun(runId, 0, 0);
-      return;
-    }
-
-    // Dedup - tylko ostatnie 30 dni zamiast całej tabeli
-    const { rows: existingUrls } = await pool.query(
-      "SELECT url FROM news_items WHERE published_at > NOW() - INTERVAL '30 days'"
-    );
+    const { rows: existingUrls } = await pool.query("SELECT url FROM news_items WHERE published_at > NOW() - INTERVAL '30 days'");
     const existingSet = new Set(existingUrls.map(r => r.url));
     let newItems = allItems.filter(i => !existingSet.has(i.url));
 
-    // Slack dedup - ostatnie 7 dni
     let slackMap = new Map();
-    try {
-      slackMap = await getSlackUrlMap(7);
-    } catch (err) {
-      console.warn('[Pipeline] Slack fetch failed, skipping Slack dedup:', err.message);
-    }
+    try { slackMap = await getSlackUrlMap(7); } catch {}
 
-    // Zapisz itemy znalezione na Slacku
     for (const item of newItems) {
       if (slackMap.has(item.url)) {
-        await pool.query(`
-          INSERT INTO news_items (url, title, source, status, reserved_by, published_at)
-          VALUES ($1, $2, $3, 'slack_taken', $4, $5)
-          ON CONFLICT (url) DO NOTHING
-        `, [item.url, cleanTitle(item.title), item.source, slackMap.get(item.url), item.published_at]).catch(() => {});
+        await pool.query(`INSERT INTO news_items (url, title, source, status, reserved_by, published_at)
+          VALUES ($1,$2,$3,'slack_taken',$4,$5) ON CONFLICT (url) DO NOTHING`,
+          [item.url, cleanTitle(item.title), item.source, slackMap.get(item.url), item.published_at]).catch(() => {});
       }
     }
 
     newItems = newItems.filter(i => !slackMap.has(i.url));
     console.log(`[Pipeline] ${newItems.length} new items after dedup`);
+    if (!newItems.length) { await closeRun(runId, 0, 0); return; }
 
-    if (!newItems.length) {
-      await closeRun(runId, 0, 0);
-      return;
-    }
-
-    // Istniejące klastry z 48h
-    const { rows: clusters } = await pool.query(`
-      SELECT DISTINCT cluster_id, cluster_label FROM news_items
-      WHERE fetched_at > NOW() - INTERVAL '48 hours' AND cluster_id IS NOT NULL
-    `);
-
+    const { rows: clusters } = await pool.query(`SELECT DISTINCT cluster_id, cluster_label FROM news_items WHERE fetched_at > NOW() - INTERVAL '48 hours' AND cluster_id IS NOT NULL`);
     const instr = await getInstructions();
     const processed = await filterAndCluster(newItems, clusters, instr.router, instr.temperature);
     console.log(`[Pipeline] Gemini returned ${processed.length} results`);
@@ -144,125 +79,70 @@ async function runPipeline() {
     let saved = 0, rejected = 0, unmatched = 0;
 
     for (const item of processed) {
-      const original = findOriginal(urlMap, item.url);
-      if (!original) {
-        unmatched++;
-        if (unmatched <= 3) console.warn(`[Pipeline] URL mismatch: "${item.url}"`);
-        continue;
-      }
-
-      // Zawsze używaj oryginalnego URL z RSS, nie tego co zwrócił Gemini
-      const url = original.url;
+      const orig = findOriginal(urlMap, item.url);
+      if (!orig) { unmatched++; continue; }
+      const url = orig.url;
 
       if (!item.relevant) {
-        await pool.query(`
-          INSERT INTO news_items (url, title, summary, source, cluster_id, cluster_label, status, temperature, published_at)
-          VALUES ($1, $2, $3, $4, 'odrzucone', 'Odrzucone', 'rejected', 1, $5)
-          ON CONFLICT (url) DO NOTHING
-        `, [url, cleanTitle(original.title), item.summary || '', original.source, original.published_at]).catch(() => {});
+        await pool.query(`INSERT INTO news_items (url, title, headline, summary, source, cluster_id, cluster_label, status, temperature, rejection_reason, published_at)
+          VALUES ($1,$2,$3,$4,$5,'odrzucone','Odrzucone','rejected',1,$6,$7) ON CONFLICT (url) DO NOTHING`,
+          [url, cleanTitle(orig.title), item.headline || '', item.summary || '', orig.source, item.rejection_reason || '', orig.published_at]).catch(() => {});
         rejected++;
         continue;
       }
 
       try {
-        await pool.query(`
-          INSERT INTO news_items (url, title, summary, source, cluster_id, cluster_label, temperature, published_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          ON CONFLICT (url) DO NOTHING
-        `, [
-          url, cleanTitle(original.title), item.summary || '', original.source,
-          item.cluster_id || 'inne-tematy', item.cluster_label || 'Inne tematy',
-          Math.min(10, Math.max(1, item.temperature || 5)), original.published_at
-        ]);
+        await pool.query(`INSERT INTO news_items (url, title, headline, summary, source, cluster_id, cluster_label, temperature, published_at)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (url) DO NOTHING`,
+          [url, cleanTitle(orig.title), item.headline || '', item.summary || '', orig.source,
+           item.cluster_id || 'inne-tematy', item.cluster_label || 'Inne tematy',
+           Math.min(10, Math.max(1, item.temperature || 5)), orig.published_at]);
         saved++;
       } catch (e) { console.error('[Pipeline] Insert error:', e.message); }
     }
 
-    if (unmatched > 0) console.warn(`[Pipeline] ${unmatched}/${processed.length} URL mismatches`);
+    if (unmatched > 0) console.warn(`[Pipeline] ${unmatched} URL mismatches`);
     await closeRun(runId, newItems.length, saved);
     console.log(`[Pipeline] Done: ${saved} saved, ${rejected} rejected, ${unmatched} unmatched`);
-
-    // Fire-and-forget OG image scraping
-    scrapeOgImages().catch(e => console.error('[Pipeline] OG scraping failed:', e.message));
+    scrapeOgImages().catch(e => console.error('[OG]', e.message));
 
   } catch (err) {
     console.error('[Pipeline] Fatal:', err.message);
     await closeRun(runId, 0, 0, err.message);
-  } finally {
-    lastRun = new Date();
-    isRunning = false;
-  }
+  } finally { lastRun = new Date(); isRunning = false; }
 }
 
-async function closeRun(runId, fetched, saved, error = null) {
-  if (!runId) return;
+async function closeRun(id, fetched, saved, error = null) {
+  if (!id) return;
   try {
-    if (error) {
-      await pool.query(
-        'UPDATE pipeline_runs SET finished_at=NOW(), items_fetched=$1, items_saved=$2, error=$3 WHERE id=$4',
-        [fetched, saved, error, runId]
-      );
-    } else {
-      await pool.query(
-        'UPDATE pipeline_runs SET finished_at=NOW(), items_fetched=$1, items_saved=$2 WHERE id=$3',
-        [fetched, saved, runId]
-      );
-    }
-  } catch (e) {
-    console.error('[Pipeline] Cannot close run:', e.message);
-  }
+    await pool.query('UPDATE pipeline_runs SET finished_at=NOW(), items_fetched=$1, items_saved=$2, error=$3 WHERE id=$4',
+      [fetched, saved, error, id]);
+  } catch {}
 }
 
 async function refilterItems() {
-  if (isRefiltering) { console.log('[Refilter] Already running'); return; }
+  if (isRefiltering) return;
   isRefiltering = true;
-  console.log('[Refilter] Starting...');
   try {
-    const { rows: items } = await pool.query(
-      "SELECT * FROM news_items WHERE status = 'free' ORDER BY published_at DESC"
-    );
-    if (!items.length) {
-      console.log('[Refilter] No free items to refilter');
-      isRefiltering = false;
-      return;
-    }
-
-    const { rows: clusters } = await pool.query(
-      "SELECT DISTINCT cluster_id, cluster_label FROM news_items WHERE cluster_id IS NOT NULL AND cluster_id != 'inne-tematy'"
-    );
-
+    const { rows: items } = await pool.query("SELECT * FROM news_items WHERE status = 'free' ORDER BY published_at DESC");
+    if (!items.length) { isRefiltering = false; return; }
+    const { rows: clusters } = await pool.query("SELECT DISTINCT cluster_id, cluster_label FROM news_items WHERE cluster_id IS NOT NULL AND cluster_id != 'inne-tematy'");
     const instr = await getInstructions();
     const processed = await reclusterAndRescore(items, clusters, instr.router, instr.temperature);
-
-    let updated = 0;
     const urlMap = buildUrlMap(items);
+    let updated = 0;
     for (const item of processed) {
-      const original = findOriginal(urlMap, item.url);
-      if (!original) continue;
-      try {
-        await pool.query(`
-          UPDATE news_items SET
-            summary = COALESCE(NULLIF($1,''), summary),
-            cluster_id = $2,
-            cluster_label = $3,
-            temperature = $4
-          WHERE id = $5
-        `, [
-          item.summary || '',
-          item.cluster_id || 'inne-tematy',
-          item.cluster_label || 'Inne tematy',
-          Math.min(10, Math.max(1, item.temperature || 5)),
-          original.id
-        ]);
-        updated++;
-      } catch (e) {
-        console.error('[Refilter] Update error:', e.message);
-      }
+      const orig = findOriginal(urlMap, item.url);
+      if (!orig) continue;
+      await pool.query(`UPDATE news_items SET headline=COALESCE(NULLIF($1,''),headline), summary=COALESCE(NULLIF($2,''),summary),
+        cluster_id=$3, cluster_label=$4, temperature=$5 WHERE id=$6`,
+        [item.headline || '', item.summary || '', item.cluster_id || 'inne-tematy', item.cluster_label || 'Inne tematy',
+         Math.min(10, Math.max(1, item.temperature || 5)), orig.id]).catch(() => {});
+      updated++;
     }
-    console.log(`[Refilter] Done: ${updated}/${items.length} items updated`);
-  } catch (err) {
-    console.error('[Refilter] Fatal:', err.message);
-  } finally { isRefiltering = false; }
+    console.log(`[Refilter] Done: ${updated}/${items.length}`);
+  } catch (err) { console.error('[Refilter]', err.message); }
+  finally { isRefiltering = false; }
 }
 
 function getStatus() { return { lastRun, isRunning, isRefiltering }; }

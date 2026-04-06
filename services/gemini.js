@@ -6,8 +6,8 @@ const RETRY_BASE_DELAY = 2000;
 async function callGemini(prompt, retryCount = 0) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set');
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
   let res;
   try {
@@ -20,20 +20,17 @@ async function callGemini(prompt, retryCount = 0) {
       })
     });
   } catch (err) {
-    // Błąd sieci - retry
     if (retryCount < MAX_RETRIES) {
       const delay = RETRY_BASE_DELAY * Math.pow(2, retryCount);
-      console.warn(`[Gemini] Network error, retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms: ${err.message}`);
+      console.warn(`[Gemini] Network error, retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms`);
       await new Promise(r => setTimeout(r, delay));
       return callGemini(prompt, retryCount + 1);
     }
     throw new Error(`Gemini network error after ${MAX_RETRIES} retries: ${err.message}`);
   }
 
-  // HTTP errors - retry na 429/500/503
   if (!res.ok) {
-    const retryable = [429, 500, 502, 503].includes(res.status);
-    if (retryable && retryCount < MAX_RETRIES) {
+    if ([429, 500, 502, 503].includes(res.status) && retryCount < MAX_RETRIES) {
       const delay = RETRY_BASE_DELAY * Math.pow(2, retryCount);
       console.warn(`[Gemini] HTTP ${res.status}, retry ${retryCount + 1}/${MAX_RETRIES} in ${delay}ms`);
       await new Promise(r => setTimeout(r, delay));
@@ -44,158 +41,100 @@ async function callGemini(prompt, retryCount = 0) {
   }
 
   const data = await res.json();
-
-  // API-level errors
-  if (data.error) {
-    throw new Error(`Gemini API: ${data.error.message || JSON.stringify(data.error)}`);
-  }
-
+  if (data.error) throw new Error(`Gemini API: ${data.error.message}`);
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    const reason = data.candidates?.[0]?.finishReason;
-    throw new Error(`Gemini: empty response (finishReason: ${reason || 'unknown'})`);
-  }
+  if (!text) throw new Error(`Gemini: empty response (${data.candidates?.[0]?.finishReason})`);
 
-  // Wyczyść markdown fences
   const clean = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-
-  // Próba parsowania JSON z naprawą urwanych odpowiedzi
   return parseJsonSafe(clean);
 }
 
 function parseJsonSafe(raw) {
-  // Najpierw spróbuj bezpośrednio
   try { return JSON.parse(raw); } catch {}
-
-  // Znajdź początek arraya
   const arrStart = raw.indexOf('[');
-  if (arrStart === -1) {
-    // Może to pojedynczy obiekt?
-    const objStart = raw.indexOf('{');
-    if (objStart === -1) throw new Error('Gemini: no JSON found in response');
-    try { return [JSON.parse(raw.slice(objStart))]; } catch {}
-    throw new Error('Gemini: unparseable JSON response');
-  }
-
+  if (arrStart === -1) return [];
   let toParse = raw.slice(arrStart);
-
-  // Jeśli brakuje zamykającego ]
   if (!toParse.endsWith(']')) {
-    // Znajdź ostatni kompletny obiekt
-    const lastBrace = toParse.lastIndexOf('}');
-    if (lastBrace !== -1) {
-      toParse = toParse.slice(0, lastBrace + 1) + ']';
-    } else {
-      return []; // Nic się nie da uratować
-    }
+    const last = toParse.lastIndexOf('}');
+    if (last !== -1) toParse = toParse.slice(0, last + 1) + ']';
+    else return [];
   }
-
   try { return JSON.parse(toParse); } catch {}
-
-  // Ostatnia deska ratunku: wycinaj po jednym obiekcie od końca
   let attempts = 0;
   while (attempts < 5) {
-    const lastObj = toParse.lastIndexOf('},{');
-    if (lastObj === -1) break;
-    toParse = toParse.slice(0, lastObj + 1) + ']';
+    const cut = toParse.lastIndexOf('},{');
+    if (cut === -1) break;
+    toParse = toParse.slice(0, cut + 1) + ']';
     try { return JSON.parse(toParse); } catch {}
     attempts++;
   }
-
   throw new Error('Gemini: JSON repair failed');
 }
 
-async function filterAndCluster(items, existingClusters = [], routerInstructions = '', temperatureInstructions = '') {
+async function processBatches(items, clusters, routerInstructions, temperatureInstructions, mode) {
   const results = [];
-  const clusters = [...existingClusters];
+  const cls = [...clusters];
 
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const batch = items.slice(i, i + BATCH_SIZE);
     const batchNum = Math.floor(i / BATCH_SIZE) + 1;
     const total = Math.ceil(items.length / BATCH_SIZE);
-    console.log(`[Gemini] filter batch ${batchNum}/${total} (${batch.length} items)`);
+    console.log(`[Gemini] ${mode} batch ${batchNum}/${total} (${batch.length} items)`);
 
+    const clusterCtx = cls.length > 0
+      ? JSON.stringify(cls.map(c => ({ cluster_id: c.cluster_id, cluster_label: c.cluster_label })))
+      : 'brak';
+
+    const itemsCtx = JSON.stringify(batch.map(item => ({ url: item.url, title: item.title || '' })));
+
+    const isFilter = mode === 'filter';
     const prompt = `${routerInstructions}
 
 ${temperatureInstructions}
 
 Istniejące klastry (reużyj cluster_id jeśli pasuje):
-${clusters.length > 0 ? JSON.stringify(clusters.map(c => ({ cluster_id: c.cluster_id, cluster_label: c.cluster_label }))) : 'brak'}
+${clusterCtx}
 
 Artykuły do oceny (${batch.length} sztuk):
-${JSON.stringify(batch.map(item => ({ url: item.url, title: item.title || '' })))}
+${itemsCtx}
 
-Odpowiedz TYLKO czystym JSON array, bez żadnego tekstu przed ani po:
-[{"url":"...","relevant":true,"summary":"1-zdaniowe streszczenie po polsku","cluster_id":"slug-po-angielsku","cluster_label":"Nazwa po polsku","temperature":7}]`;
+Dla KAŻDEGO artykułu zwróć obiekt JSON.
+${isFilter ? `Jeśli artykuł jest NIEISTOTNY, ustaw relevant:false i podaj rejection_reason (krótkie uzasadnienie po polsku, 5-10 słów).
+Jeśli artykuł jest ISTOTNY, ustaw relevant:true.` : 'Wszystkie artykuły są już zakwalifikowane jako istotne.'}
+
+Dla istotnych artykułów ZAWSZE podaj:
+- headline: chwytliwy polski tytuł newsa (5-10 słów, jak nagłówek w portalu)
+- summary: 1-zdaniowe streszczenie po polsku
+- cluster_id, cluster_label, temperature
+
+Odpowiedz TYLKO czystym JSON array:
+[{"url":"...","relevant":true,"headline":"Polski tytuł newsa","summary":"Streszczenie po polsku.","cluster_id":"slug","cluster_label":"Nazwa po polsku","temperature":7${isFilter ? ',"rejection_reason":null' : ''}}]`;
 
     try {
-      const batchResults = await callGemini(prompt);
-      console.log(`[Gemini] batch ${batchNum} returned: type=${typeof batchResults}, isArray=${Array.isArray(batchResults)}, length=${batchResults?.length}, preview=${JSON.stringify(batchResults).slice(0, 200)}`);
-      if (Array.isArray(batchResults)) {
-        results.push(...batchResults);
-        for (const r of batchResults) {
-          if (r.cluster_id && !clusters.find(c => c.cluster_id === r.cluster_id)) {
-            clusters.push({ cluster_id: r.cluster_id, cluster_label: r.cluster_label });
+      const br = await callGemini(prompt);
+      if (Array.isArray(br)) {
+        results.push(...br);
+        for (const r of br) {
+          if (r.cluster_id && !cls.find(c => c.cluster_id === r.cluster_id)) {
+            cls.push({ cluster_id: r.cluster_id, cluster_label: r.cluster_label });
           }
         }
       }
     } catch (err) {
-      console.error(`[Gemini] filter batch ${batchNum} FAILED: ${err.message}`);
+      console.error(`[Gemini] ${mode} batch ${batchNum} FAILED: ${err.message}`);
     }
 
-    if (i + BATCH_SIZE < items.length) {
-      await new Promise(r => setTimeout(r, BATCH_DELAY));
-    }
+    if (i + BATCH_SIZE < items.length) await new Promise(r => setTimeout(r, BATCH_DELAY));
   }
-
   return results;
 }
 
+async function filterAndCluster(items, existingClusters = [], routerInstructions = '', temperatureInstructions = '') {
+  return processBatches(items, existingClusters, routerInstructions, temperatureInstructions, 'filter');
+}
+
 async function reclusterAndRescore(items, existingClusters = [], routerInstructions = '', temperatureInstructions = '') {
-  const results = [];
-  const clusters = [...existingClusters];
-
-  for (let i = 0; i < items.length; i += BATCH_SIZE) {
-    const batch = items.slice(i, i + BATCH_SIZE);
-    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-    const total = Math.ceil(items.length / BATCH_SIZE);
-    console.log(`[Gemini] recluster batch ${batchNum}/${total} (${batch.length} items)`);
-
-    const prompt = `${routerInstructions}
-
-${temperatureInstructions}
-
-Te artykuły są już zakwalifikowane jako relevantne. Przypisz je do klastrów i oceń temperaturę.
-
-Istniejące klastry:
-${clusters.length > 0 ? JSON.stringify(clusters.map(c => ({ cluster_id: c.cluster_id, cluster_label: c.cluster_label }))) : 'brak'}
-
-Artykuły (${batch.length} sztuk):
-${JSON.stringify(batch.map(item => ({ url: item.url, title: item.title || item.url })))}
-
-Odpowiedz TYLKO czystym JSON array, bez żadnego tekstu przed ani po:
-[{"url":"...","summary":"1-zdaniowe streszczenie po polsku","cluster_id":"slug-po-angielsku","cluster_label":"Nazwa po polsku","temperature":7}]`;
-
-    try {
-      const batchResults = await callGemini(prompt);
-      if (Array.isArray(batchResults)) {
-        results.push(...batchResults);
-        for (const r of batchResults) {
-          if (r.cluster_id && !clusters.find(c => c.cluster_id === r.cluster_id)) {
-            clusters.push({ cluster_id: r.cluster_id, cluster_label: r.cluster_label });
-          }
-        }
-      }
-    } catch (err) {
-      console.error(`[Gemini] recluster batch ${batchNum} FAILED: ${err.message}`);
-    }
-
-    if (i + BATCH_SIZE < items.length) {
-      await new Promise(r => setTimeout(r, BATCH_DELAY));
-    }
-  }
-
-  return results;
+  return processBatches(items, existingClusters, routerInstructions, temperatureInstructions, 'recluster');
 }
 
 module.exports = { filterAndCluster, reclusterAndRescore };
