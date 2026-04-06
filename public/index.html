@@ -263,7 +263,7 @@ function newsCard(item){
   const isRes=item.status==='reserved';
   const isSlack=item.status==='slack_taken';
   const hl=item.headline||item.cluster_label||item.summary||'';
-  const sum=item.headline&&item.summary&&item.headline!==item.summary?item.summary:'';
+  const sum=item.summary&&item.summary!==hl?item.summary:'';
   const bm=item.bookmarked;
 
   return '<div class="card'+(isRes?' reserved':'')+(isSlack?' faded':'')+'">'+
