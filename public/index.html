@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>news-monitor · interia gry</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#fafafa;--surface:#fff;--border:#e5e5e5;--border2:#ccc;--text:#111;--muted:#555;--dim:#999;--green:#00d4aa;--blue:#0070f3;--orange:#f5a623;--red:#ee0000}
+body{font-family:'Geist',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.mono{font-family:'Geist Mono',monospace}
+.hd{border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+.hd-inner{max-width:940px;margin:0 auto;padding:0 20px;height:44px;display:flex;align-items:center;justify-content:space-between}
+.hd-logo{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;letter-spacing:-.02em}
+.hd-right{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--dim)}
+.bar{max-width:940px;margin:0 auto;padding:10px 20px;display:flex;gap:6px;align-items:center;font-size:11px;color:var(--dim);flex-wrap:wrap}
+.bar-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.bar-dot.ok{background:var(--green);box-shadow:0 0 6px rgba(0,212,170,.4)}
+.bar-dot.busy{background:var(--orange);animation:pulse 1.4s ease infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.bar-sep{color:#ddd;margin:0 4px}
+.bar-stat b{color:var(--text);font-weight:600}
+.bar-actions{margin-left:auto;display:flex;gap:6px}
+.bar-btn{font-size:10px;color:var(--muted);background:var(--surface);border:1px solid var(--border);padding:3px 10px;border-radius:4px;cursor:pointer;font-family:'Geist Mono',monospace;transition:all .15s}
+.bar-btn:hover{border-color:var(--border2);color:var(--text)}
+.bar-btn:disabled{opacity:.4;cursor:not-allowed}
+.main{max-width:940px;width:100%;margin:0 auto;padding:16px 20px 80px;flex:1}
+.send-bar{display:flex;gap:6px;align-items:center;margin-bottom:20px;padding:10px 14px;border:1px solid var(--border);border-radius:6px;background:var(--surface)}
+.send-bar input{flex:1;font-family:'Geist Mono',monospace;font-size:12px;padding:6px 10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;outline:none}
+.send-bar input:focus{border-color:var(--border2);background:var(--surface)}
+.send-bar button{padding:6px 14px;border-radius:4px;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:'Geist Mono',monospace;background:var(--text);color:var(--surface);white-space:nowrap}
+.send-bar button:disabled{background:#ddd;color:#999;cursor:not-allowed}
+.send-bar .status{font-size:11px;font-family:'Geist Mono',monospace;white-space:nowrap}
+.send-bar .label{font-size:11px;color:var(--dim);font-family:'Geist Mono',monospace;white-space:nowrap}
+.tabs{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.tabs-title{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;font-family:'Geist Mono',monospace}
+.tabs-row{display:flex;gap:5px}
+.tab{font-size:11px;color:var(--muted);background:var(--bg);border:1px solid var(--border);padding:3px 10px;border-radius:4px;cursor:pointer;transition:all .15s;font-family:'Geist Mono',monospace}
+.tab:hover{border-color:var(--border2);color:var(--text)}
+.tab.on{background:var(--text);color:var(--surface);border-color:var(--text)}
+.day-sep{display:flex;align-items:center;gap:10px;margin:20px 0 10px;font-size:10px;font-weight:600;color:var(--dim);font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:.06em}
+.day-sep::after{content:'';flex:1;height:1px;background:var(--border)}
+.cluster{border:1px solid var(--border);border-radius:8px;background:var(--surface);margin-bottom:10px;overflow:hidden}
+.cluster-head{padding:12px 16px 8px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.cluster-label{font-size:14px;font-weight:600;line-height:1.3}
+.cluster-count{font-size:10px;color:var(--dim);font-family:'Geist Mono',monospace}
+.nr{display:flex;align-items:flex-start;gap:12px;padding:10px 16px;border-top:1px solid var(--border);transition:background .1s}
+.nr:hover{background:#fcfcfc}
+.nr.faded{opacity:.35}
+.nr-temp{width:32px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:'Geist Mono',monospace;color:#fff;flex-shrink:0;margin-top:2px}
+.nr-body{flex:1;min-width:0}
+.nr-title{font-size:13px;font-weight:600;line-height:1.35;margin-bottom:2px}
+.nr-title a{color:var(--text);text-decoration:none}
+.nr-title a:hover{text-decoration:underline}
+.nr-meta{font-size:11px;color:var(--dim);font-family:'Geist Mono',monospace;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.nr-source{color:var(--muted);font-weight:500}
+.nr-summary{font-size:12px;color:var(--muted);line-height:1.4;margin-top:4px;display:none}
+.nr-summary.open{display:block}
+.nr-toggle{font-size:10px;color:var(--dim);cursor:pointer;border:none;background:none;font-family:'Geist Mono',monospace;padding:0}
+.nr-toggle:hover{color:var(--text)}
+.nr-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.nr-take{padding:5px 12px;border-radius:4px;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:'Geist Mono',monospace;background:var(--text);color:var(--surface);transition:all .15s}
+.nr-take:hover{background:#333}
+.nr-take:disabled{background:#ddd;color:#999;cursor:not-allowed}
+.nr-reserved{font-size:10px;color:var(--red);font-family:'Geist Mono',monospace}
+.sl-msg{display:flex;gap:10px;padding:10px 16px;border-top:1px solid var(--border)}
+.sl-msg:first-child{border-top:none}
+.sl-av{width:28px;height:28px;border-radius:50%;background:#f0f0ee;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--muted);flex-shrink:0;font-family:'Geist Mono',monospace}
+.sl-body{flex:1;min-width:0}
+.sl-head{display:flex;align-items:baseline;gap:6px;margin-bottom:2px}
+.sl-name{font-size:12px;font-weight:600}
+.sl-time{font-size:10px;color:var(--dim);font-family:'Geist Mono',monospace}
+.sl-text{font-size:12px;color:var(--muted);line-height:1.5;word-break:break-word}
+.sl-text a{color:var(--blue);text-decoration:none}
+.sl-text a:hover{text-decoration:underline}
+.fd-row{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border)}
+.fd-label{font-size:10px;font-weight:600;letter-spacing:.06em;padding:2px 7px;border-radius:3px;font-family:'Geist Mono',monospace;white-space:nowrap}
+.fd-form{display:flex;gap:6px;padding:12px 16px;border-top:1px solid var(--border)}
+.fd-input{flex:1;font-family:'Geist Mono',monospace;font-size:12px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);outline:none}
+.fd-input:focus{border-color:var(--border2);background:var(--surface)}
+.st-block{padding:16px;border-top:1px solid var(--border)}
+.st-block:first-child{border-top:none}
+.st-label{font-size:11px;font-weight:600;font-family:'Geist Mono',monospace;margin-bottom:4px}
+.st-hint{font-size:11px;color:var(--dim);margin-bottom:8px}
+.st-textarea{width:100%;font-family:'Geist Mono',monospace;font-size:11px;line-height:1.7;padding:10px 12px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;resize:vertical;outline:none}
+.st-textarea:focus{border-color:var(--border2);background:var(--surface)}
+.card{border:1px solid var(--border);border-radius:8px;background:var(--surface);overflow:hidden}
+.empty{text-align:center;padding:40px 20px;color:var(--dim);font-size:12px;font-family:'Geist Mono',monospace}
+.err-banner{display:none;align-items:center;gap:8px;padding:10px 14px;margin-bottom:12px;border:1px solid #ffd0d0;border-radius:6px;background:#fff5f5;color:var(--red);font-size:11px;font-family:'Geist Mono',monospace}
+.err-banner.show{display:flex}
+.load-more{display:block;width:100%;padding:12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--muted);font-size:12px;font-family:'Geist Mono',monospace;cursor:pointer;text-align:center;margin:12px 0}
+.load-more:hover{border-color:var(--border2);color:var(--text)}
+.cf-toggle{position:relative;width:32px;height:18px;flex-shrink:0}
+.cf-toggle input{opacity:0;width:0;height:0}
+.cf-toggle-sl{position:absolute;cursor:pointer;inset:0;background:#ddd;border-radius:9px;transition:.2s}
+.cf-toggle-sl::before{content:'';position:absolute;width:14px;height:14px;left:2px;bottom:2px;background:#fff;border-radius:50%;transition:.2s}
+.cf-toggle input:checked+.cf-toggle-sl{background:var(--green)}
+.cf-toggle input:checked+.cf-toggle-sl::before{transform:translateX(14px)}
+footer{border-top:1px solid var(--border);background:var(--surface)}
+footer .inner{max-width:940px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--dim);font-family:'Geist Mono',monospace}
+</style>
+</head>
+<body>
+<header class="hd">
+  <div class="hd-inner">
+    <div class="hd-logo mono">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><rect x="1" y="1" width="8" height="8" rx="1.5" fill="#111"/><rect x="11" y="1" width="8" height="8" rx="1.5" fill="#111" opacity=".6"/><rect x="1" y="11" width="8" height="8" rx="1.5" fill="#111" opacity=".6"/><rect x="11" y="11" width="8" height="8" rx="1.5" fill="#111" opacity=".3"/></svg>
+      news-monitor <span style="color:var(--dim);font-weight:400">/ interia gry</span>
+    </div>
+    <div class="hd-right mono">
+      <span id="hTime">--:--</span>
+      <span style="color:#ddd">·</span>
+      <span id="hDate">--.--.----</span>
+    </div>
+  </div>
+</header>
+<div class="bar mono">
+  <span class="bar-dot ok" id="sDot"></span>
+  <span id="sTxt">gotowy</span>
+  <span class="bar-sep">|</span>
+  <span class="bar-stat"><b id="mFree">-</b> wolnych</span>
+  <span class="bar-sep">·</span>
+  <span class="bar-stat"><b id="mSlack">-</b> zajętych</span>
+  <span class="bar-sep">·</span>
+  <span class="bar-stat"><b id="mTaken">-</b> wziętych</span>
+  <span class="bar-sep">·</span>
+  <span class="bar-stat"><b id="mFeeds">-</b> feedów</span>
+  <span class="bar-sep">|</span>
+  <span id="sRun">run: —</span>
+  <div class="bar-actions">
+    <button class="bar-btn" id="refreshBtn" onclick="manualRefresh()">odśwież</button>
+    <button class="bar-btn" id="runBtn" onclick="manualRun()">pobierz nowe</button>
+  </div>
+</div>
+<main class="main">
+  <div class="err-banner" id="errBanner"><span>&#x26A0;</span><span id="errMsg"></span></div>
+  <div class="send-bar">
+    <span class="label">wyślij →</span>
+    <input id="manualUrl" type="url" placeholder="https://..." onkeydown="if(event.key==='Enter')sendManualUrl()">
+    <button id="manualSendBtn" onclick="sendManualUrl()">Wyślij</button>
+    <span class="status" id="manualStatus"></span>
+  </div>
+  <div class="tabs">
+    <span class="tabs-title" id="secTitle">wolne-newsy</span>
+    <div class="tabs-row">
+      <button class="tab on" id="tab-free" onclick="setTab('free')">wolne</button>
+      <button class="tab" id="tab-taken" onclick="setTab('taken')">wzięte</button>
+      <button class="tab" id="tab-rejected" onclick="setTab('rejected')">odrzucone</button>
+      <button class="tab" id="tab-kanal" onclick="setTab('kanal')">kanał</button>
+      <button class="tab" id="tab-feeds" onclick="setTab('feeds')">feedy</button>
+      <button class="tab" id="tab-settings" onclick="setTab('settings')">ustawienia</button>
+    </div>
+  </div>
+  <div id="view-free"></div>
+  <div id="view-taken" style="display:none"></div>
+  <div id="view-rejected" style="display:none"></div>
+  <div id="view-kanal" style="display:none"></div>
+  <div id="view-feeds" style="display:none"></div>
+  <div id="view-settings" style="display:none"></div>
+</main>
+<footer><div class="inner"><span>animails/interia-news</span><span>v2.1.0</span></div></footer>
+<script>
+let S={tab:'free',clusters:[],taken:[],rejected:[],feeds:[],stats:{free:0,taken:0,slack_taken:0,rejected:0},pipeline:{isRunning:false,isRefiltering:false,lastRun:null},taking:new Set(),showAllDays:false};
+const IS_FALLBACK=id=>!id||id==='uncategorized'||id==='inne-tematy';
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function ago(ts){if(!ts)return'—';const d=Math.floor((Date.now()-new Date(ts))/1000);if(d<60)return'teraz';if(d<3600)return Math.floor(d/60)+'m';if(d<86400)return Math.floor(d/3600)+'h';return Math.floor(d/86400)+'d'}
+function fmtDate(ts){if(!ts)return'—';return new Date(ts).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}
+function fmtTime(ts){if(!ts)return'';return new Date(ts).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}
+function dayLabel(ts){if(!ts)return'brak daty';const d=new Date(ts),t=new Date(),y=new Date(t);y.setDate(t.getDate()-1);if(d.toDateString()===t.toDateString())return'Dzisiaj';if(d.toDateString()===y.toDateString())return'Wczoraj';return d.toLocaleDateString('pl-PL',{weekday:'short',day:'numeric',month:'short'})}
+function dayKey(ts){if(!ts)return'x';const d=new Date(ts);return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate()}
+function dayAge(ts){if(!ts)return 99;return Math.floor((Date.now()-new Date(ts))/86400000)}
+function showErr(msg){document.getElementById('errMsg').textContent=msg;document.getElementById('errBanner').classList.add('show');setTimeout(()=>document.getElementById('errBanner').classList.remove('show'),5000)}
+function domain(url){try{return new URL(url).hostname.replace('www.','')}catch{return''}}
+function tempColor(t){if(t>=8)return'#ee0000';if(t>=6)return'#f97316';if(t>=4)return'#f5a623';return'#94a3b8'}
+function setHTML(el,html){const y=window.scrollY;el.innerHTML=html;window.scrollTo({top:y,behavior:'instant'})}
+
+async function sendManualUrl(){
+  const input=document.getElementById('manualUrl'),btn=document.getElementById('manualSendBtn'),st=document.getElementById('manualStatus');
+  const url=input.value.trim();
+  if(!url){st.style.color='var(--red)';st.textContent='wklej URL';return}
+  try{new URL(url)}catch{st.style.color='var(--red)';st.textContent='zły URL';return}
+  btn.disabled=true;btn.textContent='...';st.textContent='';
+  try{const r=await fetch('/api/manual-send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});const data=await r.json();if(!r.ok)throw new Error(data.error||'błąd');st.style.color='var(--green)';st.textContent='✓ wysłano';input.value='';setTimeout(()=>st.textContent='',3000)}catch(e){st.style.color='var(--red)';st.textContent=e.message}
+  btn.disabled=false;btn.textContent='Wyślij';
+}
+
+function tick(){const n=new Date();document.getElementById('hTime').textContent=n.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit',second:'2-digit'});document.getElementById('hDate').textContent=n.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric'})}
+tick();setInterval(tick,1000);
+
+async function load(){
+  try{const[cl,tk,fd,st,pi]=await Promise.all([fetch('/api/news').then(r=>r.json()),fetch('/api/news/taken').then(r=>r.json()),fetch('/api/feeds').then(r=>r.json()),fetch('/api/stats').then(r=>r.json()),fetch('/api/pipeline/status').then(r=>r.json())]);S.clusters=cl;S.taken=tk;S.feeds=fd;S.stats=st;S.pipeline=pi;render()}catch(e){showErr('Błąd połączenia z serwerem')}
+}
+
+async function manualRefresh(){const b=document.getElementById('refreshBtn');b.textContent='...';b.disabled=true;await load();if(S.tab==='kanal')await loadKanal();if(S.tab==='rejected')await loadRejected();b.textContent='odśwież';b.disabled=false}
+
+async function take(id){
+  if(S.taking.has(id))return;S.taking.add(id);renderFree();
+  try{const r=await fetch('/api/news/'+id+'/take',{method:'POST'});if(!r.ok){const d=await r.json();showErr(d.error||'Błąd')}else await load()}catch{showErr('Błąd sieci')}
+  S.taking.delete(id);renderFree();
+}
+
+let _pt=null;
+async function manualRun(){
+  const b=document.getElementById('runBtn');b.disabled=true;b.textContent='...';
+  await fetch('/api/pipeline/run',{method:'POST'});setStatus(true,false);
+  if(_pt)clearInterval(_pt);
+  _pt=setInterval(async()=>{try{const pi=await fetch('/api/pipeline/status').then(r=>r.json());if(!pi.isRunning){clearInterval(_pt);_pt=null;await load();b.disabled=false;b.textContent='pobierz nowe'}}catch{}},3000);
+}
+
+async function refilter(){
+  const b=document.getElementById('refilterBtn');b.textContent='...';b.disabled=true;
+  await fetch('/api/pipeline/refilter',{method:'POST'});setStatus(false,true);
+  const p=setInterval(async()=>{try{const pi=await fetch('/api/pipeline/status').then(r=>r.json());if(!pi.isRefiltering){clearInterval(p);await load();b.textContent='przefiltruj na nowo';b.disabled=false}}catch{}},3000);
+}
+
+async function addFeed(){const url=document.getElementById('nUrl').value.trim(),name=document.getElementById('nName').value.trim();if(!url)return;const r=await fetch('/api/feeds',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,name})});if(r.ok){document.getElementById('nUrl').value='';document.getElementById('nName').value='';await load()}else{const d=await r.json();showErr(d.error||'Błąd')}}
+async function toggleFeed(id){await fetch('/api/feeds/'+id+'/toggle',{method:'PATCH'});await load()}
+async function delFeed(id){if(!confirm('Usunąć feed?'))return;await fetch('/api/feeds/'+id,{method:'DELETE'});await load()}
+async function loadSettings(){const[r,t]=await Promise.all([fetch('/api/settings/router_instructions').then(r=>r.json()),fetch('/api/settings/temperature_instructions').then(r=>r.json())]);const re=document.getElementById('routerText'),te=document.getElementById('tempText');if(re)re.value=r.value||'';if(te)te.value=t.value||''}
+async function saveSetting(key,tid,bid){const v=document.getElementById(tid).value,b=document.getElementById(bid);b.textContent='...';b.disabled=true;await fetch('/api/settings/'+key,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='zapisano';setTimeout(()=>{b.textContent='zapisz';b.disabled=false},2000)}
+
+function setStatus(running,refiltering){const any=running||refiltering;document.getElementById('sDot').className='bar-dot '+(any?'busy':'ok');document.getElementById('sTxt').textContent=running?'pipeline...':refiltering?'filtrowanie...':'gotowy'}
+
+function render(){
+  document.getElementById('mFree').textContent=S.stats.free;
+  document.getElementById('mSlack').textContent=S.stats.slack_taken||0;
+  document.getElementById('mTaken').textContent=S.stats.taken;
+  document.getElementById('mFeeds').textContent=S.feeds.filter(f=>f.active).length;
+  const lr=S.pipeline.lastRun,ts=lr?(lr.finished_at||lr.started_at):null;
+  document.getElementById('sRun').textContent='run: '+ago(ts);
+  setStatus(S.pipeline.isRunning,S.pipeline.isRefiltering);
+  if(S.tab==='free')renderFree();
+  if(S.tab==='taken')renderTaken();
+  if(S.tab==='feeds')renderFeeds();
+}
+
+function newsItem(item,opts={}){
+  const t=Math.min(10,Math.max(1,item.temperature||5));
+  const tak=S.taking.has(item.id),isTaken=item.status==='slack_taken';
+  const title=item.title&&!item.title.startsWith('http')?item.title:'';
+  const sid='s'+item.id;
+  return'<div class="nr'+(opts.faded?' faded':'')+'">'+
+    '<div class="nr-temp" style="background:'+tempColor(t)+'">'+t+'</div>'+
+    '<div class="nr-body">'+
+      '<div class="nr-title">'+(title?'<a href="'+esc(item.url)+'" target="_blank" rel="noopener">'+esc(title)+'</a>':'<a href="'+esc(item.url)+'" target="_blank" rel="noopener">'+esc(item.url)+'</a>')+'</div>'+
+      '<div class="nr-meta">'+
+        '<span class="nr-source">'+esc(domain(item.url))+'</span>'+
+        '<span>'+fmtDate(item.published_at)+'</span>'+
+        (item.summary?'<button class="nr-toggle" onclick="document.getElementById(\''+sid+'\').classList.toggle(\'open\')">info</button>':'')+
+        (isTaken?'<span class="nr-reserved">zajęte: '+esc(item.reserved_by||'')+'</span>':'')+
+      '</div>'+
+      (item.summary?'<div class="nr-summary" id="'+sid+'">'+esc(item.summary)+'</div>':'')+
+    '</div>'+
+    '<div class="nr-actions">'+
+      (opts.showTake===false?'':
+        (isTaken?'<span style="font-size:10px;color:var(--dim);font-family:\'Geist Mono\',monospace">zajęte</span>':
+        '<button class="nr-take" onclick="take('+item.id+')" '+(tak?'disabled':'')+'>'+(tak?'...':'Biorę →')+'</button>'))+
+    '</div>'+
+  '</div>';
+}
+
+function renderFree(){
+  const el=document.getElementById('view-free');
+  const realClusters=S.clusters.filter(c=>!IS_FALLBACK(c.cluster_id));
+  const fallbackItems=S.clusters.filter(c=>IS_FALLBACK(c.cluster_id)).flatMap(c=>c.items).filter(i=>i.status==='free');
+  const allClusters=[...realClusters];
+  if(fallbackItems.length)allClusters.push({cluster_id:'_other',cluster_label:'Inne tematy',newest_at:fallbackItems[0]?.published_at,items:fallbackItems});
+  if(!allClusters.length||allClusters.every(c=>c.items.filter(i=>i.status==='free').length===0)){setHTML(el,'<div class="empty">brak wolnych newsów - kliknij "pobierz nowe"</div>');return}
+
+  const days={};
+  for(const c of allClusters){const k=dayKey(c.newest_at);if(!days[k])days[k]={label:dayLabel(c.newest_at),age:dayAge(c.newest_at),clusters:[]};days[k].clusters.push(c)}
+  for(const d of Object.values(days))d.clusters.sort((a,b)=>Math.max(...b.items.map(i=>i.temperature||0))-Math.max(...a.items.map(i=>i.temperature||0)));
+
+  const dayEntries=Object.entries(days).sort((a,b)=>a[1].age-b[1].age);
+  const MAX_DAYS=3;
+  const visibleDays=S.showAllDays?dayEntries:dayEntries.slice(0,MAX_DAYS);
+  const hiddenCount=dayEntries.length-MAX_DAYS;
+
+  let html='';
+  for(const[k,g] of visibleDays){
+    html+='<div class="day-sep">'+esc(g.label)+'</div>';
+    for(const c of g.clusters){
+      const freeItems=c.items.filter(x=>x.status==='free').sort((a,b)=>(b.temperature||0)-(a.temperature||0));
+      const takenItems=c.items.filter(x=>x.status==='slack_taken');
+      if(!freeItems.length&&!takenItems.length)continue;
+      const label=c.cluster_label||c.cluster_id||'';
+      const total=freeItems.length+takenItems.length;
+      html+='<div class="cluster"><div class="cluster-head"><span class="cluster-label">'+esc(label)+'</span>'+(total>1?'<span class="cluster-count">'+freeItems.length+' wolne'+(takenItems.length?' · '+takenItems.length+' zajęte':'')+'</span>':'')+'</div>'+freeItems.map(i=>newsItem(i)).join('')+takenItems.map(i=>newsItem(i,{faded:true})).join('')+'</div>';
+    }
+  }
+  if(!S.showAllDays&&hiddenCount>0)html+='<button class="load-more" onclick="S.showAllDays=true;renderFree()">pokaż starsze ('+hiddenCount+' dni)</button>';
+  setHTML(el,html);
+}
+
+function renderTaken(){
+  const el=document.getElementById('view-taken');
+  if(!S.taken.length){setHTML(el,'<div class="empty">brak wziętych</div>');return}
+  let html='';
+  for(const item of S.taken){
+    const t=Math.min(10,Math.max(1,item.temperature||5));
+    const title=item.title&&!item.title.startsWith('http')?item.title:'';
+    html+='<div class="nr" style="border-bottom:1px solid var(--border)"><div class="nr-temp" style="background:'+tempColor(t)+'">'+t+'</div><div class="nr-body"><div class="nr-title">'+(title?'<a href="'+esc(item.url)+'" target="_blank" rel="noopener">'+esc(title)+'</a>':'<a href="'+esc(item.url)+'" target="_blank" rel="noopener">'+esc(item.url)+'</a>')+'</div><div class="nr-meta"><span class="nr-source">'+esc(domain(item.url))+'</span><span>'+fmtDate(item.published_at)+'</span>'+(item.cluster_label&&item.cluster_label!=='Inne tematy'&&item.cluster_label!=='Odrzucone'?'<span>'+esc(item.cluster_label)+'</span>':'')+'</div></div></div>';
+  }
+  setHTML(el,html);
+}
+
+async function loadRejected(){
+  const el=document.getElementById('view-rejected');setHTML(el,'<div class="empty">ładowanie...</div>');
+  try{
+    const items=await fetch('/api/news/rejected').then(r=>r.json());
+    if(!items.length){setHTML(el,'<div class="empty">brak odrzuconych</div>');return}
+    const days={};for(const item of items){const k=dayKey(item.published_at);if(!days[k])days[k]={label:dayLabel(item.published_at),items:[]};days[k].items.push(item)}
+    let html='';
+    for(const[k,g] of Object.entries(days)){
+      html+='<div class="day-sep">'+esc(g.label)+'</div><div class="card">'+g.items.map(item=>'<div class="nr faded"><div class="nr-body">'+(item.title?'<div class="nr-title">'+esc(item.title)+'</div>':'')+'<div class="nr-meta"><span class="nr-source">'+esc(domain(item.url))+'</span><a href="'+esc(item.url)+'" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-size:11px">link</a><span>'+fmtDate(item.published_at)+'</span></div>'+(item.summary?'<div class="nr-summary open" style="display:block">'+esc(item.summary)+'</div>':'')+'</div></div>').join('')+'</div>';
+    }
+    setHTML(el,html);
+  }catch(e){setHTML(el,'<div class="err-banner show"><span>&#x26A0;</span><span>'+esc(e.message)+'</span></div>')}
+}
+
+async function loadKanal(){
+  const el=document.getElementById('view-kanal');setHTML(el,'<div class="empty">ładowanie...</div>');
+  try{
+    const msgs=await fetch('/api/slack/messages').then(r=>r.json());
+    if(!msgs.length){setHTML(el,'<div class="empty">brak wiadomości</div>');return}
+    const days={};for(const m of msgs){const k=dayKey(m.time);if(!days[k])days[k]={label:dayLabel(m.time),msgs:[]};days[k].msgs.push(m)}
+    let html='';
+    for(const[k,g] of Object.entries(days)){
+      html+='<div class="day-sep">'+esc(g.label)+'</div><div class="card">'+g.msgs.map(m=>'<div class="sl-msg"><div class="sl-av">'+esc(m.initials)+'</div><div class="sl-body"><div class="sl-head"><span class="sl-name">'+esc(m.user)+'</span><span class="sl-time">'+fmtTime(m.time)+'</span></div><div class="sl-text">'+(m.text||'—')+'</div></div></div>').join('')+'</div>';
+    }
+    setHTML(el,html);
+  }catch(e){setHTML(el,'<div class="err-banner show"><span>&#x26A0;</span><span>'+esc(e.message)+'</span></div>')}
+}
+
+function renderFeeds(){
+  const el=document.getElementById('view-feeds');
+  const rows=S.feeds.map(f=>'<div class="fd-row"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">'+esc(f.name)+'</div><div class="mono" style="font-size:10px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(f.url)+'</div></div><span class="fd-label" style="color:'+(f.active?'#00d4aa':'#999')+';background:'+(f.active?'rgba(0,212,170,.1)':'rgba(0,0,0,.04)')+'">'+(f.active?'ON':'OFF')+'</span><label class="cf-toggle"><input type="checkbox" '+(f.active?'checked':'')+' onchange="toggleFeed('+f.id+')"><span class="cf-toggle-sl"></span></label><button class="bar-btn" onclick="delFeed('+f.id+')" style="color:var(--red);border-color:#fdd">usuń</button></div>').join('');
+  setHTML(el,'<div class="card">'+(rows||'<div class="empty">brak feedów</div>')+'<div class="fd-form"><input class="fd-input" id="nUrl" type="url" placeholder="https://..." style="flex:2"><input class="fd-input" id="nName" type="text" placeholder="Nazwa" style="flex:1"><button class="bar-btn" onclick="addFeed()" style="background:var(--text);color:var(--surface);border-color:var(--text)">+ dodaj</button></div></div>');
+}
+
+function renderSettings(){
+  setHTML(document.getElementById('view-settings'),'<div class="card"><div class="st-block"><div class="st-label">router-instructions</div><div class="st-hint">Zasady filtrowania i grupowania w klastry</div><textarea class="st-textarea" id="routerText" style="min-height:220px"></textarea><div style="margin-top:8px"><button class="bar-btn" id="saveRouterBtn" onclick="saveSetting(\'router_instructions\',\'routerText\',\'saveRouterBtn\')">zapisz</button></div></div><div class="st-block"><div class="st-label">temperature-instructions</div><div class="st-hint">Skala oceny potencjału newsa (1-10)</div><textarea class="st-textarea" id="tempText" style="min-height:180px"></textarea><div style="margin-top:8px"><button class="bar-btn" id="saveTempBtn" onclick="saveSetting(\'temperature_instructions\',\'tempText\',\'saveTempBtn\')">zapisz</button></div></div><div class="st-block" style="display:flex;align-items:center;gap:12px"><button class="bar-btn" id="refilterBtn" onclick="refilter()" style="background:var(--text);color:var(--surface);border-color:var(--text)">przefiltruj na nowo</button><span class="mono" style="font-size:11px;color:var(--dim)">Ponownie klastruje i ocenia wolne newsy</span></div></div>');
+  loadSettings();
+}
+
+const tabNames={free:'wolne-newsy',taken:'wzięte',rejected:'odrzucone',kanal:'kanał',feeds:'feedy-rss',settings:'ustawienia'};
+function setTab(t){S.tab=t;S.showAllDays=false;['free','taken','rejected','kanal','feeds','settings'].forEach(x=>{document.getElementById('view-'+x).style.display=x===t?'':'none';document.getElementById('tab-'+x).classList.toggle('on',x===t)});document.getElementById('secTitle').textContent=tabNames[t];if(t==='settings')renderSettings();else if(t==='taken')renderTaken();else if(t==='feeds')renderFeeds();else if(t==='kanal')loadKanal();else if(t==='rejected')loadRejected();else renderFree()}
+
+setInterval(()=>{if(!S.pipeline.isRunning&&!S.pipeline.isRefiltering)load()},60000);
+load();
+</script>
+</body>
+</html>

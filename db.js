@@ -1,0 +1,102 @@
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+const DEFAULT_ROUTER = `Jesteś redaktorem newsów gamingowych dla polskiego portalu Interia. Odbiorcy to gracze casualowi i hardkorowi.
+
+FILTROWANIE - odrzuć bezwzględnie:
+- Reklamy, listy topek, rankingi, poradniki, recenzje gier starszych niż 2 tygodnie od premiery
+- Artykuły niezwiązane z grami wideo
+- Clickbait bez konkretnej nowej informacji
+- Treści powtarzające news z tego samego dnia z innego źródła (zachowaj tylko najlepsze)
+
+ZACHOWAJ:
+- Premiery i zapowiedzi gier (każda platforma)
+- Patche, aktualizacje, DLC do znanych tytułów
+- Kontrowersje, skandale i ciekawe spory branżowe
+- Industry news: zwolnienia, przejęcia, wyniki finansowe, zmiany w studiach
+- Nieoczekiwane i zaskakujące doniesienia
+
+GRUPOWANIE w klastry:
+- Artykuły o TYM SAMYM wydarzeniu z różnych źródeł = ten sam cluster_id
+- cluster_id: krótki kebab-case slug po angielsku, np. "gta6-release-date", "cdpr-layoffs"
+- cluster_label: czytelna nazwa po polsku, np. "Data premiery GTA 6", "Zwolnienia w CD Projekt"
+- Każdy artykuł MUSI mieć cluster_id - nigdy nie zwracaj null ani pustego stringa`;
+
+const DEFAULT_TEMPERATURE = `OCENA POTENCJAŁU NEWSA (temperature, skala 1-10):
+
+10 - wydarzenie globalne: premiera AAA, ogromny skandal, coś co zdominuje branżowe media przez dni
+8-9 - bardzo ważny news: zapowiedź głośnej gry, duży patch do popularnego tytułu, poważny kryzys studia
+6-7 - solidny news wartościowy dla graczy: mniejsza premiera, ciekawa aktualizacja, interesujący industry news
+4-5 - przeciętny news: niszowy tytuł, drobna aktualizacja, branżowa ciekawostka
+1-3 - słaby potencjał: bardzo niszowy temat, mały nieznany deweloper, marginalna informacja
+
+Uwzględnij popularność tytułu i studia w Polsce.
+Preferuj tematy które mają potencjał viralowy lub wywołają dyskusję w komentarzach.`;
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS feeds (
+      id SERIAL PRIMARY KEY,
+      url TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      active BOOLEAN DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS news_items (
+      id SERIAL PRIMARY KEY,
+      url TEXT UNIQUE NOT NULL,
+      title TEXT,
+      summary TEXT,
+      source TEXT,
+      cluster_id TEXT,
+      cluster_label TEXT,
+      status TEXT DEFAULT 'free',
+      reserved_by TEXT,
+      temperature INT DEFAULT 5,
+      published_at TIMESTAMPTZ,
+      fetched_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS pipeline_runs (
+      id SERIAL PRIMARY KEY,
+      started_at TIMESTAMPTZ DEFAULT NOW(),
+      finished_at TIMESTAMPTZ,
+      items_fetched INT DEFAULT 0,
+      items_saved INT DEFAULT 0,
+      error TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    INSERT INTO feeds (url, name)
+    VALUES ('https://gamerant.com/feed/gaming/', 'Game Rant')
+    ON CONFLICT (url) DO NOTHING;
+  `);
+
+  await pool.query(
+    `INSERT INTO settings (key, value) VALUES ('router_instructions', $1)
+     ON CONFLICT (key) DO NOTHING`, [DEFAULT_ROUTER]
+  );
+  await pool.query(
+    `INSERT INTO settings (key, value) VALUES ('temperature_instructions', $1)
+     ON CONFLICT (key) DO NOTHING`, [DEFAULT_TEMPERATURE]
+  );
+
+  await pool.query(`
+    ALTER TABLE news_items ADD COLUMN IF NOT EXISTS reserved_by TEXT;
+    ALTER TABLE news_items ADD COLUMN IF NOT EXISTS temperature INT DEFAULT 5;
+  `).catch(() => {});
+
+  console.log('[DB] Ready');
+}
+
+module.exports = { pool, initDb };
