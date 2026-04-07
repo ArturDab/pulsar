@@ -61,6 +61,7 @@ async function initDb() {
     ALTER TABLE news_items ADD COLUMN IF NOT EXISTS bookmarked BOOLEAN DEFAULT false;
     ALTER TABLE news_items ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
     ALTER TABLE news_items ADD COLUMN IF NOT EXISTS headline TEXT;
+    ALTER TABLE news_items ADD COLUMN IF NOT EXISTS produce_count INT DEFAULT 0;
   `).catch(() => {});
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_ni_status ON news_items(status);

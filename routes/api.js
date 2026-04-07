@@ -64,7 +64,7 @@ router.post('/news/:id/reserve', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Produce - send to Make.com webhook, mark as produced
+// Produce - send to Make.com webhook, increment counter
 router.post('/news/:id/produce', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM news_items WHERE id=$1', [req.params.id]);
@@ -80,8 +80,11 @@ router.post('/news/:id/produce', async (req, res) => {
       if (!r.ok) console.error('[Make] Webhook returned:', r.status);
     }
 
-    await pool.query("UPDATE news_items SET status='produced' WHERE id=$1", [item.id]);
-    res.json({ ok: true });
+    const { rows: updated } = await pool.query(
+      "UPDATE news_items SET status='produced', produce_count = COALESCE(produce_count, 0) + 1 WHERE id=$1 RETURNING produce_count",
+      [item.id]
+    );
+    res.json({ ok: true, produce_count: updated[0].produce_count });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

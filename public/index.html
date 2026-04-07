@@ -375,6 +375,7 @@ function newsCard(item){
   const hl=item.headline||item.cluster_label||item.summary||'';
   const sum=item.summary&&item.summary!==hl?item.summary:'';
   const hasImg=item.og_image;
+  const pc=item.produce_count||0;
   const cardClass='card'+(isRes?' reserved':'')+(isProd?' produced':'')+(isDis?' dismissed':'')+(isSlack?' faded':'');
 
   return '<div class="'+cardClass+'">'+
@@ -382,7 +383,7 @@ function newsCard(item){
     '<div class="card-gauge">'+arcSvg(t)+'</div></div>'+
     '<div class="card-body">'+
     (isRes?'<div class="card-reserved-badge">zarezerwowany</div>':'')+
-    (isProd?'<div class="card-produced-badge">w produkcji</div>':'')+
+    (isProd?'<div class="card-produced-badge">w produkcji'+(pc>1?' ('+pc+'x)':'')+'</div>':'')+
     '<div class="card-hl"><a href="'+esc(item.url)+'" target="_blank" rel="noopener">'+esc(hl)+'</a></div>'+
     (sum?'<div class="card-sum">'+esc(sum)+'</div>':'')+
     '<div class="card-meta m"><span class="card-src">'+esc(dom(item.url))+'</span> · '+fmtD(item.published_at)+'</div>'+
@@ -390,7 +391,7 @@ function newsCard(item){
     (isDis||isSlack?'':'<div class="card-actions">'+
       '<button class="card-btn act-dismiss" onclick="doAction('+item.id+',\'dismiss\')">Odrzuć</button>'+
       '<button class="card-btn act-res" onclick="doAction('+item.id+',\'reserve\')"'+(isRes?' disabled':'')+'>Rezerwuję</button>'+
-      '<button class="card-btn act-prod" onclick="doAction('+item.id+',\'produce\')"'+(isProd?' disabled':'')+'>Produkcja</button>'+
+      '<button class="card-btn act-prod" onclick="doAction('+item.id+',\'produce\')">Produkcja'+(pc>0?' ('+pc+')':'')+'</button>'+
     '</div>')+
     '</div></div>';
 }
