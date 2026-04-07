@@ -51,6 +51,11 @@ async function initDb() {
       key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ DEFAULT NOW()
     );
     INSERT INTO feeds (url, name) VALUES ('https://gamerant.com/feed/gaming/', 'Game Rant') ON CONFLICT (url) DO NOTHING;
+    CREATE TABLE IF NOT EXISTS review_projects (
+      id SERIAL PRIMARY KEY, game_title TEXT NOT NULL, links TEXT[] DEFAULT '{}',
+      notes TEXT, status TEXT DEFAULT 'draft', produce_count INT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
   await pool.query(`INSERT INTO settings (key, value) VALUES ('router_instructions', $1) ON CONFLICT (key) DO NOTHING`, [DEFAULT_ROUTER]);
   await pool.query(`INSERT INTO settings (key, value) VALUES ('temperature_instructions', $1) ON CONFLICT (key) DO NOTHING`, [DEFAULT_TEMPERATURE]);

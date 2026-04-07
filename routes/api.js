@@ -4,6 +4,7 @@ const { pool } = require('../db');
 const { postToSlack, getRecentMessages } = require('../services/slack');
 const { runPipeline, refilterItems, getStatus } = require('../services/pipeline');
 const { scrapeOgImages } = require('../services/og');
+const { fetchMetacritic } = require('../services/metacritic');
 
 // --- NEWS (includes reserved items in wolne view) ---
 router.get('/news', async (req, res) => {
@@ -177,6 +178,71 @@ router.get('/stats', async (req, res) => {
 // --- SLACK ---
 router.get('/slack/messages', async (req, res) => {
   try { res.json(await getRecentMessages(40)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- REVIEWS ---
+router.get('/reviews', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM review_projects ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/reviews', async (req, res) => {
+  try {
+    const { game_title, links, notes } = req.body;
+    if (!game_title) return res.status(400).json({ error: 'Tytuł gry wymagany' });
+    const { rows } = await pool.query(
+      'INSERT INTO review_projects (game_title, links, notes) VALUES ($1, $2, $3) RETURNING *',
+      [game_title, links || [], notes || '']
+    );
+    res.json(rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/reviews/:id', async (req, res) => {
+  try {
+    const { game_title, links, notes } = req.body;
+    const { rows } = await pool.query(
+      'UPDATE review_projects SET game_title=COALESCE($1,game_title), links=COALESCE($2,links), notes=COALESCE($3,notes) WHERE id=$4 RETURNING *',
+      [game_title, links, notes, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/reviews/:id', async (req, res) => {
+  try { await pool.query('DELETE FROM review_projects WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/reviews/:id/produce', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM review_projects WHERE id=$1', [req.params.id]);
+    const item = rows[0];
+    if (!item) return res.status(404).json({ error: 'Not found' });
+
+    const makeUrl = process.env.MAKE_REVIEW_WEBHOOK_URL || process.env.MAKE_WEBHOOK_URL;
+    if (makeUrl) {
+      await fetch(makeUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'review', game_title: item.game_title, links: item.links, notes: item.notes })
+      }).catch(e => console.error('[Make] Review webhook failed:', e.message));
+    }
+
+    const { rows: updated } = await pool.query(
+      "UPDATE review_projects SET status='produced', produce_count = produce_count + 1 WHERE id=$1 RETURNING *",
+      [item.id]
+    );
+    res.json(updated[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- METACRITIC ---
+router.get('/metacritic', async (req, res) => {
+  try { res.json(await fetchMetacritic()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
