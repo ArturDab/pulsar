@@ -4,7 +4,7 @@ const { pool } = require('../db');
 const { postToSlack, getRecentMessages } = require('../services/slack');
 const { runPipeline, refilterItems, getStatus } = require('../services/pipeline');
 const { scrapeOgImages } = require('../services/og');
-const { fetchLatestReviews } = require('../services/metacritic');
+const { fetchReviewFeed } = require('../services/reviews-feed');
 
 // --- NEWS (includes reserved items in wolne view) ---
 router.get('/news', async (req, res) => {
@@ -225,11 +225,14 @@ router.post('/reviews/:id/produce', async (req, res) => {
     if (!item) return res.status(404).json({ error: 'Not found' });
 
     const makeUrl = process.env.MAKE_REVIEW_WEBHOOK_URL || process.env.MAKE_WEBHOOK_URL;
-    if (makeUrl) {
-      await fetch(makeUrl, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'review', game_title: item.game_title, links: item.links, notes: item.notes })
-      }).catch(e => console.error('[Make] Review webhook failed:', e.message));
+    if (makeUrl && item.links && item.links.length) {
+      // Send each link as a separate webhook call (like news)
+      for (const link of item.links) {
+        await fetch(makeUrl, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: link })
+        }).catch(e => console.error('[Make] Review webhook failed:', e.message));
+      }
     }
 
     const { rows: updated } = await pool.query(
@@ -242,7 +245,7 @@ router.post('/reviews/:id/produce', async (req, res) => {
 
 // --- METACRITIC ---
 router.get('/metacritic', async (req, res) => {
-  try { res.json(await fetchLatestReviews()); }
+  try { res.json(await fetchReviewFeed()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 

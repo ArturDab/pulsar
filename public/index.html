@@ -267,8 +267,7 @@ footer .in{max-width:1100px;margin:0 auto;padding:14px 24px;display:flex;justify
     </div>
     <div>
       <div class="mc-panel">
-        <h3>Najnowsze recenzje</h3>
-        <div style="font-size:11px;color:var(--dim);margin:-8px 0 12px">źródło: OpenCritic</div>
+        <h3>Najnowsze recenzje w sieci</h3>
         <div id="mcList"><div style="color:var(--dim);font-size:13px;padding:12px 0">Ładowanie...</div></div>
       </div>
     </div>
@@ -630,16 +629,13 @@ async function loadMetacritic(){
   try{
     const data=await fetch('/api/metacritic').then(r=>r.json());
     S.metacritic=data;
-    if(!data.length){el.innerHTML='<div style="color:var(--dim);font-size:13px;padding:12px 0">Brak danych z OpenCritic.</div>';return}
-    el.innerHTML=data.map(g=>{
-      const sc=g.score;
-      const cls=sc>=75?'green':sc>=50?'yellow':sc?'red':'tbd';
-      return '<div class="mc-item">'+
-        '<div class="mc-score '+cls+'">'+(sc||'?')+'</div>'+
+    if(!data.length){el.innerHTML='<div style="color:var(--dim);font-size:13px;padding:12px 0">Brak danych.</div>';return}
+    el.innerHTML=data.map(g=>
+      '<div class="mc-item">'+
         '<div class="mc-title"><a href="'+esc(g.url)+'" target="_blank" rel="noopener">'+esc(g.title)+'</a></div>'+
-        (g.date?'<div class="mc-date">'+esc(g.date)+'</div>':'')+
-      '</div>';
-    }).join('');
+        '<div class="mc-date">'+esc(g.source||'')+(g.date?' · '+esc(g.date):'')+'</div>'+
+      '</div>'
+    ).join('');
   }catch(e){el.innerHTML='<div style="color:var(--red);font-size:13px">Błąd: '+esc(e.message)+'</div>'}
 }
 
