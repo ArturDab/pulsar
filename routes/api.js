@@ -4,7 +4,7 @@ const { pool } = require('../db');
 const { postToSlack, getRecentMessages } = require('../services/slack');
 const { runPipeline, refilterItems, getStatus } = require('../services/pipeline');
 const { scrapeOgImages } = require('../services/og');
-const { fetchMetacritic } = require('../services/metacritic');
+const { fetchLatestReviews } = require('../services/metacritic');
 
 // --- NEWS (includes reserved items in wolne view) ---
 router.get('/news', async (req, res) => {
@@ -242,7 +242,7 @@ router.post('/reviews/:id/produce', async (req, res) => {
 
 // --- METACRITIC ---
 router.get('/metacritic', async (req, res) => {
-  try { res.json(await fetchMetacritic()); }
+  try { res.json(await fetchLatestReviews()); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 

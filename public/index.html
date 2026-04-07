@@ -257,17 +257,18 @@ footer .in{max-width:1100px;margin:0 auto;padding:14px 24px;display:flex;justify
     </div>
     <button class="btn" onclick="addRvLink()" style="margin-bottom:10px">+ dodaj link</button>
     <textarea class="rv-input" id="rvNotes" placeholder="Notatki (opcjonalnie) - dodatkowe wskazówki dla AI" rows="2" style="resize:vertical"></textarea>
-    <button class="btn btn-p" onclick="createReview()">Utwórz projekt recenzji</button>
+    <button class="btn btn-p" onclick="createReview()">Utwórz recenzję</button>
   </div>
 
   <div class="rv-grid">
     <div>
-      <div style="font-size:22px;font-weight:800;letter-spacing:-.03em;margin-bottom:16px">Projekty recenzji</div>
+      <div style="font-size:22px;font-weight:800;letter-spacing:-.03em;margin-bottom:16px">Recenzje</div>
       <div id="rvList"></div>
     </div>
     <div>
       <div class="mc-panel">
-        <h3>Metacritic - najnowsze</h3>
+        <h3>Najnowsze recenzje</h3>
+        <div style="font-size:11px;color:var(--dim);margin:-8px 0 12px">źródło: OpenCritic</div>
         <div id="mcList"><div style="color:var(--dim);font-size:13px;padding:12px 0">Ładowanie...</div></div>
       </div>
     </div>
@@ -568,7 +569,7 @@ async function loadReviews(){
 
 function renderReviews(){
   const el=document.getElementById('rvList');
-  if(!S.reviews.length){el.innerHTML='<div class="empty">Brak projektów recenzji. Utwórz pierwszy.</div>';return}
+  if(!S.reviews.length){el.innerHTML='<div class="empty">Brak recenzji. Utwórz pierwszą.</div>';return}
   el.innerHTML=S.reviews.map(r=>{
     const isProd=r.status==='produced';
     const pc=r.produce_count||0;
@@ -619,7 +620,7 @@ async function produceReview(id){
 }
 
 async function deleteReview(id){
-  if(!confirm('Usunąć projekt recenzji?'))return;
+  if(!confirm('Usunąć recenzję?'))return;
   try{await fetch('/api/reviews/'+id,{method:'DELETE'});await loadReviews()}catch(e){showErr(e.message)}
 }
 
@@ -629,7 +630,7 @@ async function loadMetacritic(){
   try{
     const data=await fetch('/api/metacritic').then(r=>r.json());
     S.metacritic=data;
-    if(!data.length){el.innerHTML='<div style="color:var(--dim);font-size:13px;padding:12px 0">Brak danych. Metacritic może blokować scraping.</div>';return}
+    if(!data.length){el.innerHTML='<div style="color:var(--dim);font-size:13px;padding:12px 0">Brak danych z OpenCritic.</div>';return}
     el.innerHTML=data.map(g=>{
       const sc=g.score;
       const cls=sc>=75?'green':sc>=50?'yellow':sc?'red':'tbd';
