@@ -129,4 +129,34 @@ async function postToSlack(url) {
   return data;
 }
 
-module.exports = { getSlackUrls, getSlackUrlMap, getRecentMessages, postToSlack };
+async function deleteMessageByUrl(targetUrl) {
+  if (!SLACK_TOKEN) throw new Error('SLACK_BOT_TOKEN not set');
+  // Find our bot's message containing this URL
+  const params = new URLSearchParams({ channel: CHANNEL_ID, limit: '100' });
+  const res = await fetch(`https://slack.com/api/conversations.history?${params}`, {
+    headers: { Authorization: `Bearer ${SLACK_TOKEN}` }
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(`Slack: ${data.error}`);
+  
+  const norm = targetUrl.toLowerCase().replace(/\/+$/, '');
+  for (const msg of (data.messages || [])) {
+    const urls = extractUrls(msg.text);
+    const match = urls.some(u => u.toLowerCase().replace(/\/+$/, '') === norm);
+    if (match) {
+      const delRes = await fetch('https://slack.com/api/chat.delete', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${SLACK_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: CHANNEL_ID, ts: msg.ts })
+      });
+      const delData = await delRes.json();
+      if (!delData.ok && delData.error !== 'message_not_found') {
+        throw new Error(`Nie udało się usunąć: ${delData.error}`);
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+module.exports = { getSlackUrls, getSlackUrlMap, getRecentMessages, postToSlack, deleteMessageByUrl };

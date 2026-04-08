@@ -51,13 +51,15 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .card:hover{border-color:var(--border2);transform:translateY(-4px);box-shadow:0 16px 48px rgba(0,0,0,.25)}[data-theme="light"] .card:hover{box-shadow:0 12px 40px rgba(0,0,0,.08)}
 .card.st-res{border-color:var(--cyan-br)}.card.st-prod{border-color:var(--neon-br)}
 [data-theme="light"] .card.st-res{border-color:rgba(0,119,170,.22);background:rgba(0,119,170,.03)}[data-theme="light"] .card.st-prod{border-color:rgba(0,153,92,.22);background:rgba(0,153,92,.03)}
-.card.st-rej{opacity:.45;pointer-events:none;border-style:dashed}.card.st-taken{opacity:.4;pointer-events:none;border-style:dashed}.card.st-dim{opacity:.12;filter:grayscale(1);pointer-events:none}
-.c-overlay{position:absolute;bottom:0;left:0;right:0;z-index:4;display:flex;flex-direction:column;align-items:center;padding:14px;pointer-events:none;background:linear-gradient(transparent,rgba(0,0,0,.6))}
-.c-overlay-label{font-family:var(--display);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:6px 16px;border-radius:8px}
-.c-overlay-label.rej{background:rgba(255,68,68,.85);color:#fff}
-.c-overlay-label.taken{background:rgba(255,170,0,.85);color:#fff}
-[data-theme="light"] .c-overlay{background:linear-gradient(transparent,rgba(0,0,0,.4))}
-.c-overlay-reason{font-size:12px;color:rgba(255,255,255,.8);font-weight:600;max-width:220px;text-align:center;line-height:1.4;margin-top:4px}
+.card.st-rej{opacity:.5;border-style:dashed}.card.st-taken{opacity:.5;border-style:dashed}.card.st-dim{opacity:.5;border-style:dashed}
+.card.st-rej,.card.st-taken,.card.st-dim{pointer-events:none}
+.c-overlay{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;pointer-events:none;background:rgba(13,15,19,.55);backdrop-filter:blur(2px)}
+[data-theme="light"] .c-overlay{background:rgba(255,255,255,.6)}
+.c-overlay-label{font-family:var(--display);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:10px 22px;border-radius:10px}
+.c-overlay-label.rej{background:rgba(255,68,68,.9);color:#fff}
+.c-overlay-label.taken{background:rgba(255,170,0,.9);color:#fff}
+.c-overlay-label.dim{background:rgba(100,100,120,.85);color:#fff}
+.c-overlay-reason{font-size:12px;color:rgba(255,255,255,.85);font-weight:600;max-width:250px;text-align:center;line-height:1.4;padding:4px 14px;background:rgba(0,0,0,.3);border-radius:6px}
 .c-dismiss{position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.6);color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:all .2s;z-index:5;border:none;backdrop-filter:blur(6px)}.card:hover .c-dismiss{opacity:1}.c-dismiss:hover{background:var(--hot);color:#fff}.c-dismiss svg{width:14px;height:14px}
 .c-img{width:100%;aspect-ratio:16/9;overflow:hidden;position:relative;background:var(--bg3)}
 .c-img img{width:100%;height:100%;display:block;object-fit:cover;transition:transform .5s cubic-bezier(.4,0,.2,1)}.card:hover .c-img img{transform:scale(1.05)}
@@ -131,7 +133,7 @@ footer{max-width:1300px;margin:0 auto;padding:28px 36px 36px;display:flex;justif
 <header><div class="logo-group"><div class="logo-mark"><svg width="38" height="38" viewBox="0 0 38 38" fill="none"><circle cx="19" cy="19" r="6" fill="var(--neon)" opacity=".9"/><circle cx="19" cy="19" r="11" stroke="var(--neon)" stroke-width=".7" fill="none" opacity=".3"/><circle cx="19" cy="19" r="16" stroke="var(--cyan)" stroke-width=".5" fill="none" opacity=".15" stroke-dasharray="2.5 4"/></svg></div><div class="logo-text">Pulsar</div><div class="nav-pills"><button class="nav-pill on" onclick="showMod('news')">Newsy</button><button class="nav-pill" onclick="showMod('reviews')">Recenzje</button><button class="nav-pill" onclick="showMod('felietony')">Felietony</button></div></div><div class="hd-right"><div class="live"><div class="live-dot"></div><div class="live-label">Live</div></div><div class="clock" id="clock"></div><button class="theme-btn" id="themeBtn"></button></div></header>
 
 <div id="mod-news">
-<div class="cmd-strip"><div class="cmd-stats"><div class="cmd-stat"><b id="mFree">-</b> wolnych</div><div class="cmd-stat"><b id="mRes">-</b> zarezerwowanych</div><div class="cmd-stat"><b id="mProd">-</b> w produkcji</div><div class="cmd-stat"><b id="mFeeds">-</b> feedów</div><div class="cmd-stat" id="sRun">run: —</div></div><div class="cmd-right"><input class="cmd-input" id="sendUrl" placeholder="Wklej URL do produkcji..." onkeydown="if(event.key==='Enter')doSend()"><button class="btn-run" id="sendBtn" onclick="doSend()">Wyślij</button><button class="btn-run" id="syncBtn" onclick="doSlackSync()" style="border-color:var(--cyan-br);color:var(--cyan);background:var(--cyan-bg)">Sprawdź Slacka</button><button class="btn-run" id="runBtn" onclick="doRun()">Pobierz nowe</button></div></div>
+<div class="cmd-strip"><div class="cmd-stats"><div class="cmd-stat"><b id="mFree">-</b> wolnych</div><div class="cmd-stat"><b id="mRes">-</b> zarezerwowanych</div><div class="cmd-stat"><b id="mProd">-</b> w produkcji</div><div class="cmd-stat"><b id="mFeeds">-</b> feedów</div><div class="cmd-stat" id="sRun">run: —</div></div><div class="cmd-right"><input class="cmd-input" id="sendUrl" placeholder="Wklej URL do produkcji..." onkeydown="if(event.key==='Enter')doSend()"><button class="btn-run" id="sendBtn" onclick="doSend()">Wyślij</button><button class="btn-run" id="syncBtn" onclick="doSlackSync()" style="border-color:var(--cyan-br);color:var(--cyan);background:var(--cyan-bg)">Sprawdź Slacka</button><button class="btn-run" id="runBtn" onclick="doRun()">Odśwież wszystko</button></div></div>
 <div class="toolbar"><div class="toolbar-left"><div class="section-title" id="secTitle">Newsy</div><div class="section-count" id="secCount"></div></div><div class="toolbar-tabs"><button class="ttab on" id="tab-free" onclick="setTab('free')">Newsy</button><button class="ttab" id="tab-taken" onclick="setTab('taken')">Wzięte</button><button class="ttab" id="tab-kanal" onclick="setTab('kanal')">Slack</button><button class="ttab" id="tab-feeds" onclick="setTab('feeds')">Feedy</button><button class="ttab" id="tab-settings" onclick="setTab('settings')">Ustawienia</button></div></div>
 <div id="v-free"></div>
 <div id="v-taken" style="display:none"></div>
@@ -196,15 +198,16 @@ function render(){document.getElementById('mFree').textContent=S.stats.free||0;d
 async function doAction(id,action){try{var r=await fetch('/api/news/'+id+'/'+action,{method:'POST'});var d=await r.json();if(!r.ok)throw new Error(d.error);await load()}catch(e){showErr(e.message)}}
 async function doSend(){var i=document.getElementById('sendUrl'),u=i.value.trim();if(!u)return;try{var r=await fetch('/api/manual-send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});var d=await r.json();if(!r.ok)throw new Error(d.error);i.value=''}catch(e){showErr(e.message)}}
 var _pt=null;async function doSlackSync(){var b=document.getElementById('syncBtn');b.disabled=true;b.textContent='...';try{var r=await fetch('/api/slack/sync',{method:'POST'});var d=await r.json();b.textContent=d.synced?d.synced+' zajętych':'OK';await load();setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}catch(e){b.textContent='Błąd';setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}}
-async function doRun(){var b=document.getElementById('runBtn');b.disabled=true;b.textContent='...';await fetch('/api/pipeline/run',{method:'POST'});if(_pt)clearInterval(_pt);_pt=setInterval(async function(){try{var p=await fetch('/api/pipeline/status').then(function(r){return r.json()});if(!p.isRunning){clearInterval(_pt);_pt=null;await load();b.disabled=false;b.textContent='Pobierz nowe'}}catch(e){}},3e3)}
+async function doRun(){var b=document.getElementById('runBtn');b.disabled=true;b.textContent='Odświeżam...';await fetch('/api/pipeline/run',{method:'POST'});if(_pt)clearInterval(_pt);_pt=setInterval(async function(){try{var p=await fetch('/api/pipeline/status').then(function(r){return r.json()});if(!p.isRunning){clearInterval(_pt);_pt=null;await load();b.disabled=false;b.textContent='Odśwież wszystko'}}catch(e){}},3e3)}
 
 function newsCard(item){var t=Math.min(10,Math.max(1,item.temperature||5)),st=item.status||'free',pc=item.produce_count||0,sc=item._sources||1;
 var isRes=st==='reserved',isProd=st==='produced',isDis=st==='dismissed',isRej=st==='rejected',isSlack=st==='slack_taken';
 var isMySlack=isSlack&&item.reserved_by&&item.reserved_by.indexOf('Artur')>=0;
 var cls='card'+(isRes||isMySlack?' st-res':'')+(isProd?' st-prod':'')+(isRej?' st-rej':'')+(isSlack&&!isMySlack?' st-taken':'')+(isDis?' st-dim':'');
 var ov='';
-if(isRej)ov='<div class="c-overlay"><div class="c-overlay-label rej">Odrzucony przez AI</div>'+(item.rejection_reason?'<div class="c-overlay-reason">'+esc(item.rejection_reason)+'</div>':'')+'</div>';
+if(isRej)ov='<div class="c-overlay"><div class="c-overlay-label rej">Odrzucone przez AI</div>'+(item.rejection_reason?'<div class="c-overlay-reason">'+esc(item.rejection_reason)+'</div>':'')+'</div>';
 if(isSlack&&!isMySlack)ov='<div class="c-overlay"><div class="c-overlay-label taken">Zajęte przez innego redaktora</div>'+(item.reserved_by?'<div class="c-overlay-reason">'+esc(item.reserved_by)+'</div>':'')+'</div>';
+if(isDis)ov='<div class="c-overlay"><div class="c-overlay-label dim">Odrzucone przez Ciebie</div></div>';
 var isInactive=isDis||isRej||(isSlack&&!isMySlack);
 var hl=item.headline||item.cluster_label||item.summary||'';
 var sum=item.summary&&item.summary!==hl?item.summary:'';
@@ -219,12 +222,12 @@ return'<div class="'+cls+'">'+ov+
 '<div class="c-hl"><a href="'+esc(item.url)+'" target="_blank" rel="noopener">'+esc(hl)+'</a></div>'+
 (sum?'<div class="c-sum">'+esc(sum)+'</div>':'')+
 '<div class="c-meta"><span>'+esc(dom(item.url))+'</span>'+srcBadge+'<span class="c-meta-dot"></span><span>'+fmtD(item.published_at)+'</span></div>'+
-(!isInactive?'<div class="c-acts"><div class="c-btn cy'+(isRes||isMySlack?' dis':'')+'" onclick="doAction('+item.id+',\'reserve\')">'+iBookmark+' Rezerwuję</div><div class="c-btn gr" onclick="doAction('+item.id+',\'produce\')">'+iRocket+' Produkcja'+(pc?'<span class="pc-pip">'+pc+'</span>':'')+'</div></div>':'')+
+(!isInactive?'<div class="c-acts">'+(isRes||isMySlack?'<div class="c-btn cy" style="border-color:var(--red-dim);color:var(--red);flex:0 0 auto;padding:10px 16px" onclick="event.stopPropagation();doAction('+item.id+',\'unreserve\')" title="Cofnij rezerwację">'+iX+'</div>':'<div class="c-btn cy" onclick="doAction('+item.id+',\'reserve\')">'+iBookmark+' Rezerwuję</div>')+'<div class="c-btn gr" onclick="doAction('+item.id+',\'produce\')">'+iRocket+' Produkcja'+(pc?'<span class="pc-pip">'+pc+'</span>':'')+'</div></div>':'')+
 '</div></div>'}
 
 function renderFree(){var el=document.getElementById('v-free');
 var items=S.items.filter(function(i){return['free','reserved','produced','dismissed','rejected','slack_taken'].indexOf(i.status)>=0});
-if(!items.length){setH(el,'<div class="empty">Brak newsów - kliknij "Pobierz nowe"</div>');return}
+if(!items.length){setH(el,'<div class="empty">Brak newsów - kliknij "Odśwież wszystko"</div>');return}
 
 // Cluster merge: group by cluster_id, pick best representative
 var clusters={},unclustered=[];

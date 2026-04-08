@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
-const { postToSlack, getRecentMessages } = require('../services/slack');
+const { postToSlack, getRecentMessages, deleteMessageByUrl } = require('../services/slack');
 const { runPipeline, refilterItems, getStatus } = require('../services/pipeline');
 const { scrapeOgImages } = require('../services/og');
 const { fetchReviewFeed } = require('../services/reviews-feed');
@@ -97,6 +97,21 @@ router.post('/news/:id/restore', async (req, res) => {
       [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found or not rejected' });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/news/:id/unreserve', async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT * FROM news_items WHERE id=$1", [req.params.id]);
+    const item = rows[0];
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    if (!['reserved', 'slack_taken'].includes(item.status)) return res.status(400).json({ error: 'Nie zarezerwowany' });
+
+    // Try to delete the Slack message
+    try { await deleteMessageByUrl(item.url); } catch (e) { console.warn('[Unreserve] Slack delete failed:', e.message); }
+
+    await pool.query("UPDATE news_items SET status='free', reserved_by=NULL WHERE id=$1", [item.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
