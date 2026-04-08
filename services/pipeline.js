@@ -73,17 +73,34 @@ async function runPipeline() {
     let newItems = allItems.filter(i => !existingSet.has(i.url));
 
     let slackMap = new Map();
-    try { slackMap = await getSlackUrlMap(7); } catch {}
+    try {
+      const rawMap = await getSlackUrlMap(7);
+      // Normalize slack URLs for matching
+      for (const [url, user] of rawMap) slackMap.set(normUrl(url), user);
+    } catch {}
 
     for (const item of newItems) {
-      if (slackMap.has(item.url)) {
+      const nurl = normUrl(item.url);
+      if (slackMap.has(nurl)) {
         await pool.query(`INSERT INTO news_items (url, title, source, status, reserved_by, published_at)
           VALUES ($1,$2,$3,'slack_taken',$4,$5) ON CONFLICT (url) DO NOTHING`,
-          [item.url, cleanTitle(item.title), item.source, slackMap.get(item.url), item.published_at]).catch(() => {});
+          [item.url, cleanTitle(item.title), item.source, slackMap.get(nurl), item.published_at]).catch(() => {});
       }
     }
 
-    newItems = newItems.filter(i => !slackMap.has(i.url));
+    // Also mark existing free items that appeared on Slack since last run
+    if (slackMap.size > 0) {
+      const { rows: freeItems } = await pool.query("SELECT id, url FROM news_items WHERE status = 'free'");
+      for (const fi of freeItems) {
+        const nfi = normUrl(fi.url);
+        if (slackMap.has(nfi)) {
+          await pool.query("UPDATE news_items SET status='slack_taken', reserved_by=$1 WHERE id=$2",
+            [slackMap.get(nfi), fi.id]).catch(() => {});
+        }
+      }
+    }
+
+    newItems = newItems.filter(i => !slackMap.has(normUrl(i.url)));
     console.log(`[Pipeline] ${newItems.length} new items after dedup`);
     if (!newItems.length) { await closeRun(runId, 0, 0); return; }
 
