@@ -82,6 +82,7 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .pc-pip{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:10px;font-weight:800;background:var(--neon);color:var(--bg);flex-shrink:0}
 .more-btn{display:block;width:100%;padding:14px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--dim);font-size:14px;font-weight:700;cursor:pointer;text-align:center;margin:20px 0;font-family:var(--display);text-transform:uppercase;letter-spacing:.06em;transition:all .2s}.more-btn:hover{background:var(--surface);color:var(--text);border-color:var(--border2)}
 .rv-section{display:none}
+#mod-reviews,#mod-felietony,#mod-settings{max-width:1300px;margin:0 auto;padding:0 36px;position:relative;z-index:1}
 .rv-form{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px}[data-theme="light"] .rv-form{background:#fff;border-color:rgba(0,0,0,.08)}
 .rv-form h3{font-family:var(--display);font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:16px}
 .rv-input{width:100%;font-size:14px;padding:10px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);outline:none;margin-bottom:10px;font-family:var(--body);transition:all .2s}.rv-input:focus{border-color:var(--neon-br);background:var(--surface2)}.rv-input::placeholder{color:var(--dimmer)}
@@ -314,7 +315,7 @@ if(fv)saves.push(fetch('/api/settings/model_felieton',{method:'PUT',headers:{'Co
 await Promise.all(saves);
 b.textContent='OK';setTimeout(function(){b.textContent='Zapisz modele';b.disabled=false},2e3)}
 async function saveSetting(k,tid,bid){var v=document.getElementById(tid).value,b=document.getElementById(bid);b.textContent='...';b.disabled=true;await fetch('/api/settings/'+k,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='ok';setTimeout(function(){b.textContent='Zapisz';b.disabled=false},2e3)}
-async function saveApiKey(){var v=document.getElementById('orKeyIn').value.trim(),b=document.getElementById('orKeyBtn');if(!v)return;b.textContent='...';b.disabled=true;await fetch('/api/settings/openrouter_api_key',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='OK';setTimeout(function(){b.textContent='Zapisz';b.disabled=false},2e3)}
+async function saveApiKey(){var v=document.getElementById('orKeyIn').value.trim(),b=document.getElementById('orKeyBtn'),st=document.getElementById('orKeySt');if(!v)return;b.textContent='...';b.disabled=true;await fetch('/api/settings/openrouter_api_key',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;if(st){st.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';st.style.opacity='1';setTimeout(function(){st.style.opacity='0'},3000)}}
 async function refilter(){var b=document.getElementById('refilterBtn');b.textContent='...';b.disabled=true;await fetch('/api/pipeline/refilter',{method:'POST'});var p=setInterval(async function(){try{var s=await fetch('/api/pipeline/status').then(function(r){return r.json()});if(!s.isRefiltering){clearInterval(p);await load();b.textContent='Przefiltruj';b.disabled=false}}catch(e){}},3e3)}
 if(!S.settingsTab)S.settingsTab='newsy';
 function renderSettings(){
@@ -333,7 +334,7 @@ function sel(id){return'<select class="rv-input" id="'+id+'" style="margin:0;pad
 var tabs=['newsy','felietony'];
 var tabsHtml='<div class="toolbar-tabs" style="margin-bottom:0">'+tabs.map(function(t){return'<button class="ttab'+(S.settingsTab===t?' on':'')+'" onclick="S.settingsTab=\''+t+'\';renderSettings()">'+t.charAt(0).toUpperCase()+t.slice(1)+'</button>'}).join('')+'</div>';
 
-var orKeyBlock='<div class="st-block"><div class="st-lbl">OpenRouter API Key</div><div class="st-hint">Wymagany do modeli spoza Gemini (Claude, GPT, Llama itp.)</div><div style="display:flex;gap:8px;margin-top:6px"><input class="rv-input" id="orKeyIn" type="password" placeholder="sk-or-..." style="margin:0;flex:1"><button class="btn" id="orKeyBtn" onclick="saveApiKey()">Zapisz</button></div></div>';
+var orKeyBlock='<div class="st-block"><div class="st-lbl">OpenRouter API Key</div><div class="st-hint">Wymagany do modeli spoza Gemini (Claude, GPT, Llama itp.)</div><div style="display:flex;gap:8px;align-items:center;margin-top:6px"><input class="rv-input" id="orKeyIn" type="password" placeholder="sk-or-..." style="margin:0;flex:1"><button class="btn" id="orKeyBtn" onclick="saveApiKey()">Zapisz</button><span id="orKeySt" style="opacity:0;transition:opacity .4s;display:flex;align-items:center"></span></div></div>';
 
 var bodyHtml='';
 if(S.settingsTab==='newsy'){
