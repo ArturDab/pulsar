@@ -372,20 +372,28 @@ router.post('/felietony/:id/produce', async (req, res) => {
     const item = rows[0];
     if (!item) return res.status(404).json({ error: 'Not found' });
 
-    const { rows: settingsRows } = await pool.query("SELECT value FROM settings WHERE key='felieton_instructions'");
-    const instructions = settingsRows[0]?.value || '';
+    const { rows: settingsRows } = await pool.query(
+      "SELECT key, value FROM settings WHERE key IN ('felieton_instructions','felieton_webhook_url')"
+    );
+    const smap = {};
+    settingsRows.forEach(r => { smap[r.key] = r.value; });
+    const instructions = smap['felieton_instructions'] || '';
+    const makeUrl = smap['felieton_webhook_url'] || process.env.MAKE_FELIETON_WEBHOOK_URL || process.env.MAKE_WEBHOOK_URL;
 
-    const makeUrl = process.env.MAKE_FELIETON_WEBHOOK_URL || process.env.MAKE_WEBHOOK_URL;
-    if (makeUrl) {
-      await fetch(makeUrl, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'felieton',
-          title: item.title,
-          brief: item.brief,
-          instructions: instructions
-        })
-      }).catch(e => console.error('[Make] Felieton webhook failed:', e.message));
+    if (!makeUrl) return res.status(400).json({ error: 'Brak URL webhooka Make.com. Dodaj go w Ustawieniach → Felietony.' });
+
+    const hookRes = await fetch(makeUrl, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'felieton',
+        title: item.title,
+        brief: item.brief,
+        instructions: instructions
+      })
+    });
+    if (!hookRes.ok) {
+      const txt = await hookRes.text().catch(() => '');
+      return res.status(502).json({ error: `Make.com webhook błąd ${hookRes.status}: ${txt}` });
     }
 
     const { rows: updated } = await pool.query(
