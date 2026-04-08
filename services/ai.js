@@ -12,6 +12,15 @@ function isGeminiModel(model) {
   return model && model.startsWith('gemini-');
 }
 
+async function getOpenRouterKey() {
+  try {
+    const { pool } = require('../db');
+    const { rows } = await pool.query("SELECT value FROM settings WHERE key='openrouter_api_key'");
+    if (rows[0]?.value) return rows[0].value;
+  } catch {}
+  return process.env.OPENROUTER_API_KEY || null;
+}
+
 async function callAI(prompt, { model, temperature = 0.2, maxTokens = 8192, tools = null } = {}) {
   if (!model) model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -61,8 +70,8 @@ async function callGemini(prompt, model, temperature, maxTokens, tools, retryCou
 }
 
 async function callOpenRouter(prompt, model, temperature, maxTokens, retryCount = 0) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error('OPENROUTER_API_KEY not set. Dodaj klucz w Railway Variables.');
+  const apiKey = await getOpenRouterKey();
+  if (!apiKey) throw new Error('Brak klucza OpenRouter. Dodaj go w Ustawieniach lub w Railway Variables.');
 
   let res;
   try {
