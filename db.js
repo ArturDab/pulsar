@@ -56,6 +56,11 @@ async function initDb() {
       notes TEXT, status TEXT DEFAULT 'draft', produce_count INT DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS felieton_ideas (
+      id SERIAL PRIMARY KEY, title TEXT NOT NULL, brief TEXT,
+      direction TEXT, status TEXT DEFAULT 'draft', produce_count INT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
   await pool.query(`INSERT INTO settings (key, value) VALUES ('router_instructions', $1) ON CONFLICT (key) DO NOTHING`, [DEFAULT_ROUTER]);
   await pool.query(`INSERT INTO settings (key, value) VALUES ('temperature_instructions', $1) ON CONFLICT (key) DO NOTHING`, [DEFAULT_TEMPERATURE]);

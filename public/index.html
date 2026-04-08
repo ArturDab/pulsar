@@ -116,6 +116,18 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .cf-toggle{position:relative;width:36px;height:20px;flex-shrink:0}.cf-toggle input{opacity:0;width:0;height:0}.cf-toggle-sl{position:absolute;cursor:pointer;inset:0;background:var(--dimmer);border-radius:10px;transition:.2s}.cf-toggle-sl::before{content:'';position:absolute;width:16px;height:16px;left:2px;bottom:2px;background:#fff;border-radius:50%;transition:.2s}.cf-toggle input:checked+.cf-toggle-sl{background:var(--neon)}.cf-toggle input:checked+.cf-toggle-sl::before{transform:translateX(16px)}
 .empty{text-align:center;padding:48px 24px;color:var(--dim);font-size:14px}
 .err{display:none;align-items:center;gap:8px;padding:12px 16px;margin-bottom:14px;border:1px solid var(--red-dim);border-radius:10px;background:rgba(255,68,68,.06);color:var(--red);font-size:13px}.err.show{display:flex}
+.fel-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;transition:all .2s}
+[data-theme="light"] .fel-card{background:#fff;border-color:rgba(0,0,0,.08)}
+.fel-card:hover{border-color:var(--border2)}
+.fel-card.sent{border-color:var(--neon-br);opacity:.6}
+.fel-title-input{font-size:18px;font-weight:700;width:100%;background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text);outline:none;padding:4px 0;margin-bottom:8px;font-family:var(--body);transition:border-color .2s}
+.fel-title-input:focus{border-bottom-color:var(--neon-br)}
+.fel-brief-input{font-size:14px;width:100%;background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text2);outline:none;padding:4px 0;margin-bottom:12px;font-family:var(--body);line-height:1.55;resize:none;transition:border-color .2s;min-height:48px}
+.fel-brief-input:focus{border-bottom-color:var(--neon-br)}
+.fel-meta{font-size:11px;color:var(--dim);margin-bottom:12px;font-weight:600}
+.fel-acts{display:flex;gap:8px}
+.fel-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.fel-grid{grid-template-columns:1fr}}
 footer{max-width:1300px;margin:0 auto;padding:28px 36px 36px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);margin-top:60px}
 .footer-brand{font-family:var(--display);font-size:14px;font-weight:600;color:var(--dim);letter-spacing:.08em;text-transform:uppercase}.footer-ver{font-size:12px;color:var(--dimmer);font-weight:500}
 </style>
@@ -123,7 +135,7 @@ footer{max-width:1300px;margin:0 auto;padding:28px 36px 36px;display:flex;justif
 <body>
 <div class="scanline"></div><div class="glow-tl"></div><div class="glow-br"></div>
 <div class="w">
-<header><div class="logo-group"><div class="logo-mark"><svg width="38" height="38" viewBox="0 0 38 38" fill="none"><circle cx="19" cy="19" r="6" fill="var(--neon)" opacity=".9"/><circle cx="19" cy="19" r="11" stroke="var(--neon)" stroke-width=".7" fill="none" opacity=".3"/><circle cx="19" cy="19" r="16" stroke="var(--cyan)" stroke-width=".5" fill="none" opacity=".15" stroke-dasharray="2.5 4"/></svg></div><div class="logo-text">Pulsar</div><div class="nav-pills"><button class="nav-pill on" onclick="showMod('news')">Newsy</button><button class="nav-pill" onclick="showMod('reviews')">Recenzje</button></div></div><div class="hd-right"><div class="live"><div class="live-dot"></div><div class="live-label">Live</div></div><div class="clock" id="clock"></div><button class="theme-btn" id="themeBtn"></button></div></header>
+<header><div class="logo-group"><div class="logo-mark"><svg width="38" height="38" viewBox="0 0 38 38" fill="none"><circle cx="19" cy="19" r="6" fill="var(--neon)" opacity=".9"/><circle cx="19" cy="19" r="11" stroke="var(--neon)" stroke-width=".7" fill="none" opacity=".3"/><circle cx="19" cy="19" r="16" stroke="var(--cyan)" stroke-width=".5" fill="none" opacity=".15" stroke-dasharray="2.5 4"/></svg></div><div class="logo-text">Pulsar</div><div class="nav-pills"><button class="nav-pill on" onclick="showMod('news')">Newsy</button><button class="nav-pill" onclick="showMod('reviews')">Recenzje</button><button class="nav-pill" onclick="showMod('felietony')">Felietony</button></div></div><div class="hd-right"><div class="live"><div class="live-dot"></div><div class="live-label">Live</div></div><div class="clock" id="clock"></div><button class="theme-btn" id="themeBtn"></button></div></header>
 
 <div id="mod-news">
 <div class="cmd-strip"><div class="cmd-stats"><div class="cmd-stat"><b id="mFree">-</b> wolnych</div><div class="cmd-stat"><b id="mRes">-</b> zarezerwowanych</div><div class="cmd-stat"><b id="mProd">-</b> w produkcji</div><div class="cmd-stat"><b id="mFeeds">-</b> feedów</div><div class="cmd-stat" id="sRun">run: —</div></div><div class="cmd-right"><input class="cmd-input" id="sendUrl" placeholder="Wklej URL do produkcji..." onkeydown="if(event.key==='Enter')doSend()"><button class="btn-run" id="sendBtn" onclick="doSend()">Wyślij</button><button class="btn-run" id="runBtn" onclick="doRun()">Pobierz nowe</button></div></div>
@@ -141,10 +153,23 @@ footer{max-width:1300px;margin:0 auto;padding:28px 36px 36px;display:flex;justif
 <div class="rv-grid"><div id="rvList"></div><div><div class="feed-panel"><h3>Najnowsze recenzje w sieci</h3><div id="feedList"><div class="fg-empty">Ładowanie...</div></div></div></div></div>
 </div>
 </div>
-<footer><div class="footer-brand">Pulsar</div><div class="footer-ver">v6.0</div></footer>
+
+<div id="mod-felietony" class="rv-section">
+<div class="toolbar" style="padding-top:30px"><div class="toolbar-left"><div class="section-title">Felietony</div></div></div>
+<div class="rv-form">
+  <h3>Generator pomysłów</h3>
+  <textarea class="rv-input" id="felDir" placeholder="Kierunek tematyczny (opcjonalnie), np. nostalgia za erą PS2, kontrowersje wokół early access, gry które przepowiedziały przyszłość..." rows="2" style="resize:vertical"></textarea>
+  <button class="btn-run" id="felGenBtn" onclick="generateFelietony()">Generuj 10 pomysłów</button>
+  <span id="felGenStatus" style="font-size:12px;color:var(--dim);margin-left:12px"></span>
+</div>
+<div id="felList"></div>
+</div>
+
+</div>
+<footer><div class="footer-brand">Pulsar</div><div class="footer-ver">v7.0</div></footer>
 
 <script>
-var S={tab:'free',module:'news',items:[],taken:[],feeds:[],stats:{},pipeline:{},allDays:false,sort:'time',reviews:[],goodEx:[],badEx:[]};
+var S={tab:'free',module:'news',items:[],taken:[],feeds:[],stats:{},pipeline:{},allDays:false,sort:'time',reviews:[],felietony:[],goodEx:[],badEx:[]};
 var iBookmark='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>';
 var iRocket='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>';
 var iShield='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
@@ -173,7 +198,7 @@ setTheme(true);document.getElementById('themeBtn').onclick=function(){setTheme(!
 function tick(){var n=new Date();document.getElementById('clock').textContent=n.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' \u00b7 '+n.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric'})}
 tick();setInterval(tick,1e3);
 
-function showMod(m){S.module=m;document.getElementById('mod-news').style.display=m==='news'?'':'none';document.getElementById('mod-reviews').style.display=m==='reviews'?'block':'none';document.querySelectorAll('.nav-pill').forEach(function(b,i){b.classList.toggle('on',i===(m==='news'?0:1))});if(m==='reviews'){loadReviews();loadFeed()}}
+function showMod(m){S.module=m;document.getElementById('mod-news').style.display=m==='news'?'':'none';document.getElementById('mod-reviews').style.display=m==='reviews'?'block':'none';document.getElementById('mod-felietony').style.display=m==='felietony'?'block':'none';document.querySelectorAll('.nav-pill').forEach(function(b,i){b.classList.toggle('on',i===(m==='news'?0:m==='reviews'?1:2))});if(m==='reviews'){loadReviews();loadFeed()}if(m==='felietony')loadFelietony()}
 
 async function load(){try{var[items,tk,fd,st,pi]=await Promise.all([fetch('/api/news').then(function(r){return r.json()}),fetch('/api/news/taken').then(function(r){return r.json()}),fetch('/api/feeds').then(function(r){return r.json()}),fetch('/api/stats').then(function(r){return r.json()}),fetch('/api/pipeline/status').then(function(r){return r.json()})]);S.items=items;S.taken=tk;S.feeds=fd;S.stats=st;S.pipeline=pi;render()}catch(e){console.error(e)}}
 function render(){document.getElementById('mFree').textContent=S.stats.free||0;document.getElementById('mRes').textContent=S.stats.reserved||0;document.getElementById('mProd').textContent=S.stats.produced||0;document.getElementById('mFeeds').textContent=S.feeds.filter(function(f){return f.active}).length;var lr=S.pipeline.lastRun,ts=lr?(lr.finished_at||lr.started_at):null;document.getElementById('sRun').textContent='run: '+ago(ts);if(S.tab==='free')renderFree();if(S.tab==='taken')renderTaken();if(S.tab==='feeds')renderFeeds()}
@@ -229,10 +254,10 @@ async function addFeed(){var u=document.getElementById('nUrl').value.trim(),n=do
 async function toggleFeed(id){await fetch('/api/feeds/'+id+'/toggle',{method:'PATCH'});await load()}
 async function delFeed(id){if(!confirm('Usunąć?'))return;await fetch('/api/feeds/'+id,{method:'DELETE'});await load()}
 
-async function loadSettings(){var[r,t,g,b]=await Promise.all([fetch('/api/settings/router_instructions').then(function(r){return r.json()}),fetch('/api/settings/temperature_instructions').then(function(r){return r.json()}),fetch('/api/settings/training_good').then(function(r){return r.json()}),fetch('/api/settings/training_bad').then(function(r){return r.json()})]);var ra=document.getElementById('routerTa'),ta=document.getElementById('tempTa');if(ra)ra.value=r.value||'';if(ta)ta.value=t.value||'';try{S.goodEx=JSON.parse(g.value||'[]')}catch(e){S.goodEx=[]}try{S.badEx=JSON.parse(b.value||'[]')}catch(e){S.badEx=[]}}
+async function loadSettings(){var[r,t,g,b,f]=await Promise.all([fetch('/api/settings/router_instructions').then(function(r){return r.json()}),fetch('/api/settings/temperature_instructions').then(function(r){return r.json()}),fetch('/api/settings/training_good').then(function(r){return r.json()}),fetch('/api/settings/training_bad').then(function(r){return r.json()}),fetch('/api/settings/felieton_instructions').then(function(r){return r.json()})]);var ra=document.getElementById('routerTa'),ta=document.getElementById('tempTa'),fa=document.getElementById('felTa');if(ra)ra.value=r.value||'';if(ta)ta.value=t.value||'';if(fa)fa.value=f.value||'';try{S.goodEx=JSON.parse(g.value||'[]')}catch(e){S.goodEx=[]}try{S.badEx=JSON.parse(b.value||'[]')}catch(e){S.badEx=[]}}
 async function saveSetting(k,tid,bid){var v=document.getElementById(tid).value,b=document.getElementById(bid);b.textContent='...';b.disabled=true;await fetch('/api/settings/'+k,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='ok';setTimeout(function(){b.textContent='Zapisz';b.disabled=false},2e3)}
 async function refilter(){var b=document.getElementById('refilterBtn');b.textContent='...';b.disabled=true;await fetch('/api/pipeline/refilter',{method:'POST'});var p=setInterval(async function(){try{var s=await fetch('/api/pipeline/status').then(function(r){return r.json()});if(!s.isRefiltering){clearInterval(p);await load();b.textContent='Przefiltruj';b.disabled=false}}catch(e){}},3e3)}
-function renderSettings(){setH(document.getElementById('v-settings'),'<div class="panel"><div class="st-block"><div class="st-lbl">Router instructions</div><div class="st-hint">Zasady filtrowania i grupowania</div><textarea class="st-ta" id="routerTa" style="min-height:200px"></textarea><div style="margin-top:10px"><button class="btn" id="saveRBtn" onclick="saveSetting(\'router_instructions\',\'routerTa\',\'saveRBtn\')">Zapisz</button></div></div><div class="st-block"><div class="st-lbl">Temperature instructions</div><div class="st-hint">Skala oceny potencjału (1-10)</div><textarea class="st-ta" id="tempTa" style="min-height:160px"></textarea><div style="margin-top:10px"><button class="btn" id="saveTBtn" onclick="saveSetting(\'temperature_instructions\',\'tempTa\',\'saveTBtn\')">Zapisz</button></div></div><div class="st-block" style="display:flex;align-items:center;gap:14px"><button class="btn-run" id="refilterBtn" onclick="refilter()">Przefiltruj</button><span style="font-size:13px;color:var(--dim)">Ponownie klastruje wolne newsy</span></div></div>');loadSettings()}
+function renderSettings(){setH(document.getElementById('v-settings'),'<div class="panel"><div class="st-block"><div class="st-lbl">Router instructions</div><div class="st-hint">Zasady filtrowania i grupowania newsów</div><textarea class="st-ta" id="routerTa" style="min-height:200px"></textarea><div style="margin-top:10px"><button class="btn" id="saveRBtn" onclick="saveSetting(\'router_instructions\',\'routerTa\',\'saveRBtn\')">Zapisz</button></div></div><div class="st-block"><div class="st-lbl">Temperature instructions</div><div class="st-hint">Skala oceny potencjału (1-10)</div><textarea class="st-ta" id="tempTa" style="min-height:160px"></textarea><div style="margin-top:10px"><button class="btn" id="saveTBtn" onclick="saveSetting(\'temperature_instructions\',\'tempTa\',\'saveTBtn\')">Zapisz</button></div></div><div class="st-block"><div class="st-lbl">Felieton instructions</div><div class="st-hint">Instrukcje dla generatora pomysłów na felietony - kim jest autor, styl, ton, czego unikać</div><textarea class="st-ta" id="felTa" style="min-height:200px"></textarea><div style="margin-top:10px"><button class="btn" id="saveFBtn" onclick="saveSetting(\'felieton_instructions\',\'felTa\',\'saveFBtn\')">Zapisz</button></div></div><div class="st-block" style="display:flex;align-items:center;gap:14px"><button class="btn-run" id="refilterBtn" onclick="refilter()">Przefiltruj</button><span style="font-size:13px;color:var(--dim)">Ponownie klastruje wolne newsy</span></div></div>');loadSettings()}
 
 var tabN={free:'Newsy',taken:'Wzięte',kanal:'Slack',feeds:'Feedy',settings:'Ustawienia'};
 function setTab(t){S.tab=t;S.allDays=false;['free','taken','kanal','feeds','settings'].forEach(function(x){document.getElementById('v-'+x).style.display=x===t?'':'none';document.getElementById('tab-'+x).classList.toggle('on',x===t)});document.getElementById('secTitle').textContent=tabN[t];if(t==='settings')renderSettings();else if(t==='taken')renderTaken();else if(t==='feeds')renderFeeds();else if(t==='kanal')loadKanal();else renderFree()}
@@ -250,6 +275,41 @@ var groups={};data.forEach(function(r){var game=r.title.replace(/\s*review.*/i,'
 var entries=Object.entries(groups).slice(0,15);
 el.innerHTML=entries.map(function(e,i){var game=e[0],revs=e[1].reviews,open=i<3;
 return'<div class="fg'+(open?' open':'')+'" onclick="this.classList.toggle(\'open\')"><div class="fg-head">'+iChev+'<div class="fg-title">'+esc(game)+'</div><div style="font-size:11px;color:var(--dim)">'+revs.length+' rec.</div></div><div class="fg-body">'+revs.map(function(r){return'<div class="fg-rv"><a href="'+esc(r.url)+'" target="_blank">'+esc(r.title)+'</a><div class="fg-rv-src">'+esc(r.source||'')+(r.date?' \u00b7 '+esc(r.date):'')+'</div></div>'}).join('')+'</div></div>'}).join('')}catch(e){el.innerHTML='<div class="fg-empty">Błąd: '+esc(e.message)+'</div>'}}
+
+// --- FELIETONY ---
+async function loadFelietony(){try{S.felietony=await fetch('/api/felietony').then(function(r){return r.json()});renderFelietony()}catch(e){console.error(e)}}
+
+function renderFelietony(){var el=document.getElementById('felList');
+if(!S.felietony.length){el.innerHTML='<div class="empty">Brak pomysłów. Kliknij "Generuj 10 pomysłów".</div>';return}
+el.innerHTML='<div class="fel-grid">'+S.felietony.map(function(f){
+var isSent=f.status==='sent',pc=f.produce_count||0;
+return'<div class="fel-card'+(isSent?' sent':'')+'">'+
+'<input class="fel-title-input" value="'+esc(f.title).replace(/"/g,'&quot;')+'" onchange="updateFel('+f.id+',this.value,null)" placeholder="Tytuł...">'+
+'<textarea class="fel-brief-input" onchange="updateFel('+f.id+',null,this.value)" placeholder="Opis/brief..."'+(f.brief?' rows="3"':'')+'>'+esc(f.brief)+'</textarea>'+
+(f.direction?'<div class="fel-meta">Kierunek: '+esc(f.direction)+'</div>':'')+
+'<div class="fel-meta">'+fmtD(f.created_at)+(pc?' \u00b7 wysłano '+pc+'x':'')+'</div>'+
+'<div class="fel-acts">'+
+'<div class="c-btn gr" style="max-width:200px" onclick="produceFel('+f.id+')">'+iRocket+' Produkcja'+(pc?'<span class="pc-pip">'+pc+'</span>':'')+'</div>'+
+'<div class="c-btn cy" style="max-width:100px;border-color:var(--red-dim);color:var(--red)" onclick="deleteFel('+f.id+')">'+iX+' Usuń</div>'+
+'</div></div>'}).join('')+'</div>'}
+
+async function generateFelietony(){
+var b=document.getElementById('felGenBtn'),st=document.getElementById('felGenStatus');
+var dir=document.getElementById('felDir').value.trim();
+b.disabled=true;b.textContent='Generuję...';st.textContent='';
+try{var r=await fetch('/api/felietony/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({direction:dir})});
+var d=await r.json();if(!r.ok)throw new Error(d.error);
+st.textContent='Wygenerowano '+d.length+' pomysłów';document.getElementById('felDir').value='';
+await loadFelietony()}catch(e){st.textContent='Błąd: '+e.message}
+b.disabled=false;b.textContent='Generuj 10 pomysłów'}
+
+async function updateFel(id,title,brief){
+var body={};if(title!==null)body.title=title;if(brief!==null)body.brief=brief;
+try{await fetch('/api/felietony/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}catch(e){console.error(e)}}
+
+async function produceFel(id){try{var r=await fetch('/api/felietony/'+id+'/produce',{method:'POST'});if(!r.ok){var d=await r.json();throw new Error(d.error)}await loadFelietony()}catch(e){showErr(e.message)}}
+
+async function deleteFel(id){if(!confirm('Usunąć pomysł?'))return;try{await fetch('/api/felietony/'+id,{method:'DELETE'});await loadFelietony()}catch(e){showErr(e.message)}}
 
 setInterval(function(){if(S.module==='news')load()},6e4);load()
 </script>

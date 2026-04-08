@@ -249,4 +249,126 @@ router.get('/metacritic', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// --- FELIETONY ---
+router.get('/felietony', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM felieton_ideas ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/felietony/generate', async (req, res) => {
+  try {
+    const { direction } = req.body;
+    const { rows: settingsRows } = await pool.query("SELECT value FROM settings WHERE key='felieton_instructions'");
+    const instructions = settingsRows[0]?.value || '';
+
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) return res.status(500).json({ error: 'GEMINI_API_KEY not set' });
+    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+
+    const prompt = `${instructions}
+
+${direction ? 'Kierunek tematyczny wskazany przez redaktora: ' + direction : 'Redaktor nie podał kierunku - zaproponuj kreatywnie różnorodne tematy.'}
+
+Wygeneruj DOKŁADNIE 10 propozycji felietonów. Dla każdej podaj:
+- title: chwytliwy, prowokujący tytuł roboczy (po polsku)
+- brief: 2-3 zdania opisujące kąt, ton i główną tezę felietonu (po polsku)
+
+Odpowiedz TYLKO czystym JSON array, bez żadnego tekstu przed ani po:
+[{"title":"...","brief":"..."}]`;
+
+    const gRes = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.9, maxOutputTokens: 4096 }
+      })
+    });
+
+    if (!gRes.ok) {
+      const body = await gRes.text().catch(() => '');
+      throw new Error(`Gemini HTTP ${gRes.status}: ${body.slice(0, 200)}`);
+    }
+
+    const gData = await gRes.json();
+    const text = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const clean = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
+    let ideas;
+    try { ideas = JSON.parse(clean); } catch {
+      const start = clean.indexOf('[');
+      const end = clean.lastIndexOf(']');
+      if (start >= 0 && end > start) ideas = JSON.parse(clean.slice(start, end + 1));
+      else throw new Error('Gemini zwrócił niepoprawny JSON');
+    }
+
+    if (!Array.isArray(ideas)) throw new Error('Gemini nie zwrócił tablicy');
+
+    const saved = [];
+    for (const idea of ideas.slice(0, 10)) {
+      if (!idea.title) continue;
+      const { rows } = await pool.query(
+        'INSERT INTO felieton_ideas (title, brief, direction) VALUES ($1, $2, $3) RETURNING *',
+        [idea.title, idea.brief || '', direction || '']
+      );
+      saved.push(rows[0]);
+    }
+
+    res.json(saved);
+  } catch (e) {
+    console.error('[Felietony] Generate error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.put('/felietony/:id', async (req, res) => {
+  try {
+    const { title, brief } = req.body;
+    const { rows } = await pool.query(
+      'UPDATE felieton_ideas SET title=COALESCE($1,title), brief=COALESCE($2,brief) WHERE id=$3 RETURNING *',
+      [title, brief, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/felietony/:id', async (req, res) => {
+  try { await pool.query('DELETE FROM felieton_ideas WHERE id=$1', [req.params.id]); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/felietony/:id/produce', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM felieton_ideas WHERE id=$1', [req.params.id]);
+    const item = rows[0];
+    if (!item) return res.status(404).json({ error: 'Not found' });
+
+    const { rows: settingsRows } = await pool.query("SELECT value FROM settings WHERE key='felieton_instructions'");
+    const instructions = settingsRows[0]?.value || '';
+
+    const makeUrl = process.env.MAKE_FELIETON_WEBHOOK_URL || process.env.MAKE_WEBHOOK_URL;
+    if (makeUrl) {
+      await fetch(makeUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'felieton',
+          title: item.title,
+          brief: item.brief,
+          instructions: instructions
+        })
+      }).catch(e => console.error('[Make] Felieton webhook failed:', e.message));
+    }
+
+    const { rows: updated } = await pool.query(
+      "UPDATE felieton_ideas SET status='sent', produce_count = produce_count + 1 WHERE id=$1 RETURNING *",
+      [item.id]
+    );
+    res.json(updated[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;
