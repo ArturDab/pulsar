@@ -303,13 +303,12 @@ router.get('/felietony', async (req, res) => {
 router.post('/felietony/generate', async (req, res) => {
   try {
     const { direction, current_events } = req.body;
+    const { callAI, parseJsonFromAI, isGeminiModel } = require('../services/ai');
+    const { getModelForTask } = require('../services/gemini');
+
     const { rows: settingsRows } = await pool.query("SELECT value FROM settings WHERE key='felieton_instructions'");
     const instructions = settingsRows[0]?.value || '';
-
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) return res.status(500).json({ error: 'GEMINI_API_KEY not set' });
-    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+    const model = await getModelForTask('felieton');
 
     const currentCtx = current_events
       ? `\nWAŻNE: Propozycje MUSZĄ nawiązywać do bieżących wydarzeń w branży gier. Najpierw przeszukaj internet, sprawdź co się dzieje w gamingu w ostatnich dniach (premiery, kontrowersje, ogłoszenia, trendy), a potem zaproponuj felietony powiązane z aktualnymi tematami. Każdy brief powinien odwoływać się do konkretnego, świeżego wydarzenia.`
@@ -326,33 +325,12 @@ Wygeneruj DOKŁADNIE 10 propozycji felietonów. Dla każdej podaj:
 Odpowiedz TYLKO czystym JSON array, bez żadnego tekstu przed ani po:
 [{"title":"...","brief":"..."}]`;
 
-    const body = {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.9, maxOutputTokens: 4096 }
-    };
-    // Enable Google Search grounding when current events requested
-    if (current_events) body.tools = [{ google_search: {} }];
+    // Google Search grounding only works with Gemini models
+    const tools = (current_events && isGeminiModel(model)) ? [{ google_search: {} }] : null;
+    const raw = await callAI(prompt, { model, temperature: 0.9, maxTokens: 4096, tools });
+    const ideas = parseJsonFromAI(raw);
 
-    const gRes = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-
-    if (!gRes.ok) {
-      const body = await gRes.text().catch(() => '');
-      throw new Error(`Gemini HTTP ${gRes.status}: ${body.slice(0, 200)}`);
-    }
-
-    const gData = await gRes.json();
-    const text = gData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const clean = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-
-    let ideas;
-    try { ideas = JSON.parse(clean); } catch {
-      const start = clean.indexOf('[');
-      const end = clean.lastIndexOf(']');
-      if (start >= 0 && end > start) ideas = JSON.parse(clean.slice(start, end + 1));
-      else throw new Error('Gemini zwrócił niepoprawny JSON');
-    }
-
-    if (!Array.isArray(ideas)) throw new Error('Gemini nie zwrócił tablicy');
+    if (!Array.isArray(ideas)) throw new Error('AI nie zwróciło tablicy');
 
     const saved = [];
     for (const idea of ideas.slice(0, 10)) {
