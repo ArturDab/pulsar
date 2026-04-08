@@ -6,11 +6,11 @@ const { runPipeline, refilterItems, getStatus } = require('../services/pipeline'
 const { scrapeOgImages } = require('../services/og');
 const { fetchReviewFeed } = require('../services/reviews-feed');
 
-// --- NEWS (includes reserved items in wolne view) ---
+// --- NEWS (all statuses for inline display) ---
 router.get('/news', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT * FROM news_items WHERE status IN ('free','reserved','produced','dismissed','slack_taken') ORDER BY published_at DESC"
+      "SELECT * FROM news_items WHERE status IN ('free','reserved','produced','dismissed','rejected','slack_taken') ORDER BY published_at DESC"
     );
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
