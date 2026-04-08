@@ -296,18 +296,15 @@ async function addFeed(){var u=document.getElementById('nUrl').value.trim(),n=do
 async function toggleFeed(id){await fetch('/api/feeds/'+id+'/toggle',{method:'PATCH'});await load()}
 async function delFeed(id){if(!confirm('Usunąć?'))return;await fetch('/api/feeds/'+id,{method:'DELETE'});await load()}
 
-async function loadSettings(){var[r,t,g,b,f,mn,mt,mf]=await Promise.all([fetch('/api/settings/router_instructions').then(function(r){return r.json()}),fetch('/api/settings/temperature_instructions').then(function(r){return r.json()}),fetch('/api/settings/training_good').then(function(r){return r.json()}),fetch('/api/settings/training_bad').then(function(r){return r.json()}),fetch('/api/settings/felieton_instructions').then(function(r){return r.json()}),fetch('/api/settings/model_news').then(function(r){return r.json()}),fetch('/api/settings/model_temperature').then(function(r){return r.json()}),fetch('/api/settings/model_felieton').then(function(r){return r.json()})]);
-var ra=document.getElementById('routerTa'),ta=document.getElementById('tempTa'),fa=document.getElementById('felTa');
-if(ra)ra.value=r.value||'';if(ta)ta.value=t.value||'';if(fa)fa.value=f.value||'';
+async function loadSettings(){var[r,t,g,b,f,mn,mt,mf,ok]=await Promise.all([fetch('/api/settings/router_instructions').then(function(r){return r.json()}),fetch('/api/settings/temperature_instructions').then(function(r){return r.json()}),fetch('/api/settings/training_good').then(function(r){return r.json()}),fetch('/api/settings/training_bad').then(function(r){return r.json()}),fetch('/api/settings/felieton_instructions').then(function(r){return r.json()}),fetch('/api/settings/model_news').then(function(r){return r.json()}),fetch('/api/settings/model_temperature').then(function(r){return r.json()}),fetch('/api/settings/model_felieton').then(function(r){return r.json()}),fetch('/api/settings/openrouter_api_key').then(function(r){return r.json()})]);
+var ra=document.getElementById('routerTa'),ta=document.getElementById('tempTa'),fa=document.getElementById('felTa'),ki=document.getElementById('orKeyIn');
+if(ra)ra.value=r.value||'';if(ta)ta.value=t.value||'';if(fa)fa.value=f.value||'';if(ki&&ok.value)ki.value=ok.value;
 try{S.goodEx=JSON.parse(g.value||'[]')}catch(e){S.goodEx=[]}try{S.badEx=JSON.parse(b.value||'[]')}catch(e){S.badEx=[]}
 var mnv=mn.value||'gemini-2.5-flash',mtv=mt.value||'gemini-2.5-flash',mfv=mf.value||'gemini-2.5-flash';
-function setMdl(id,val){var el=document.getElementById(id);if(!el)return;el.value=el.querySelector('option[value="'+val+'"]')?val:'_custom';if(el.value==='_custom'){var ci=document.getElementById(id+'_custom');if(ci)ci.value=val}}
+function setMdl(id,val){var el=document.getElementById(id);if(!el)return;el.value=val;if(!el.value&&el.options.length)el.value=el.options[0].value}
 setMdl('mdlNews',mnv);setMdl('mdlTemp',mtv);setMdl('mdlFel',mfv);}
 async function saveModels(){var b=document.getElementById('saveMBtn');b.textContent='...';b.disabled=true;
 var nv=document.getElementById('mdlNews')?document.getElementById('mdlNews').value:'',tv=document.getElementById('mdlTemp')?document.getElementById('mdlTemp').value:'',fv=document.getElementById('mdlFel')?document.getElementById('mdlFel').value:'';
-if(nv==='_custom'){var c=document.getElementById('mdlNews_custom');nv=c?c.value.trim():'gemini-2.5-flash'}
-if(tv==='_custom'){var c=document.getElementById('mdlTemp_custom');tv=c?c.value.trim():'gemini-2.5-flash'}
-if(fv==='_custom'){var c=document.getElementById('mdlFel_custom');fv=c?c.value.trim():'gemini-2.5-flash'}
 var saves=[];
 if(nv)saves.push(fetch('/api/settings/model_news',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:nv})}));
 if(tv)saves.push(fetch('/api/settings/model_temperature',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:tv})}));
@@ -320,17 +317,23 @@ async function refilter(){var b=document.getElementById('refilterBtn');b.textCon
 if(!S.settingsTab)S.settingsTab='newsy';
 function renderSettings(){
 var models=[
-{v:'gemini-2.5-flash',l:'Gemini 2.5 Flash (domyślny)'},
+{g:'Google',items:[
+{v:'gemini-2.5-flash',l:'Gemini 2.5 Flash'},
 {v:'gemini-2.5-pro',l:'Gemini 2.5 Pro'},
 {v:'gemini-2.0-flash',l:'Gemini 2.0 Flash'},
-{v:'anthropic/claude-sonnet-4',l:'Claude Sonnet 4'},
-{v:'anthropic/claude-haiku-4',l:'Claude Haiku 4'},
+]},
+{g:'Anthropic (OpenRouter)',items:[
+{v:'anthropic/claude-sonnet-4-5',l:'Claude Sonnet 4.5'},
+{v:'anthropic/claude-haiku-4-5',l:'Claude Haiku 4.5'},
+{v:'anthropic/claude-opus-4-5',l:'Claude Opus 4.5'},
+]},
+{g:'OpenAI (OpenRouter)',items:[
 {v:'openai/gpt-4o',l:'GPT-4o'},
 {v:'openai/gpt-4o-mini',l:'GPT-4o Mini'},
-{v:'meta-llama/llama-4-maverick',l:'Llama 4 Maverick'},
-{v:'google/gemini-2.5-flash-preview',l:'Gemini 2.5 Flash (OpenRouter)'},
+{v:'openai/o4-mini',l:'o4-mini'},
+]},
 ];
-function sel(id){return'<select class="rv-input" id="'+id+'" style="margin:0;padding:8px 12px">'+models.map(function(m){return'<option value="'+m.v+'">'+esc(m.l)+'</option>'}).join('')+'<option value="_custom">Inny...</option></select>';}
+function sel(id){return'<select class="rv-input" id="'+id+'" style="margin:0;padding:8px 12px">'+models.map(function(grp){return'<optgroup label="'+grp.g+'">'+grp.items.map(function(m){return'<option value="'+m.v+'">'+esc(m.l)+'</option>'}).join('')+'</optgroup>'}).join('')+'</select>';}
 var tabs=['newsy','felietony'];
 var tabsHtml='<div class="toolbar-tabs" style="margin-bottom:0">'+tabs.map(function(t){return'<button class="ttab'+(S.settingsTab===t?' on':'')+'" onclick="S.settingsTab=\''+t+'\';renderSettings()">'+t.charAt(0).toUpperCase()+t.slice(1)+'</button>'}).join('')+'</div>';
 
