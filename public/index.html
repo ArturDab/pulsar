@@ -296,13 +296,14 @@ async function addFeed(){var u=document.getElementById('nUrl').value.trim(),n=do
 async function toggleFeed(id){await fetch('/api/feeds/'+id+'/toggle',{method:'PATCH'});await load()}
 async function delFeed(id){if(!confirm('Usunąć?'))return;await fetch('/api/feeds/'+id,{method:'DELETE'});await load()}
 
-async function loadSettings(){var[r,t,g,b,f,mn,mt,mf,ok,fw]=await Promise.all([fetch('/api/settings/router_instructions').then(function(r){return r.json()}),fetch('/api/settings/temperature_instructions').then(function(r){return r.json()}),fetch('/api/settings/training_good').then(function(r){return r.json()}),fetch('/api/settings/training_bad').then(function(r){return r.json()}),fetch('/api/settings/felieton_instructions').then(function(r){return r.json()}),fetch('/api/settings/model_news').then(function(r){return r.json()}),fetch('/api/settings/model_temperature').then(function(r){return r.json()}),fetch('/api/settings/model_felieton').then(function(r){return r.json()}),fetch('/api/settings/openrouter_api_key').then(function(r){return r.json()}),fetch('/api/settings/felieton_webhook_url').then(function(r){return r.json()})]);
-var ra=document.getElementById('routerTa'),ta=document.getElementById('tempTa'),fa=document.getElementById('felTa'),ki=document.getElementById('orKeyIn'),wi=document.getElementById('felWebhookIn');
-if(ra)ra.value=r.value||'';if(ta)ta.value=t.value||'';if(fa)fa.value=f.value||'';if(ki&&ok.value)ki.value=ok.value;if(wi&&fw.value)wi.value=fw.value;
-try{S.goodEx=JSON.parse(g.value||'[]')}catch(e){S.goodEx=[]}try{S.badEx=JSON.parse(b.value||'[]')}catch(e){S.badEx=[]}
-var mnv=mn.value||'gemini-2.5-flash',mtv=mt.value||'gemini-2.5-flash',mfv=mf.value||'gemini-2.5-flash';
+async function loadSettings(){var keys=['router_instructions','temperature_instructions','training_good','training_bad','felieton_instructions','model_news','model_temperature','model_felieton','openrouter_api_key','news_webhook_url','review_webhook_url','felieton_webhook_url'];
+var res=await Promise.all(keys.map(function(k){return fetch('/api/settings/'+k).then(function(r){return r.json()})}));
+var m={};keys.forEach(function(k,i){m[k]=res[i].value||''});
+var els={routerTa:'router_instructions',tempTa:'temperature_instructions',felTa:'felieton_instructions',orKeyIn:'openrouter_api_key',newsWebhookIn:'news_webhook_url',reviewWebhookIn:'review_webhook_url',felWebhookIn:'felieton_webhook_url'};
+Object.keys(els).forEach(function(id){var el=document.getElementById(id);if(el&&m[els[id]])el.value=m[els[id]]});
+try{S.goodEx=JSON.parse(m['training_good']||'[]')}catch(e){S.goodEx=[]}try{S.badEx=JSON.parse(m['training_bad']||'[]')}catch(e){S.badEx=[]}
 function setMdl(id,val){var el=document.getElementById(id);if(!el)return;el.value=val;if(!el.value&&el.options.length)el.value=el.options[0].value}
-setMdl('mdlNews',mnv);setMdl('mdlTemp',mtv);setMdl('mdlFel',mfv);}
+setMdl('mdlNews',m['model_news']||'gemini-2.5-flash');setMdl('mdlTemp',m['model_temperature']||'gemini-2.5-flash');setMdl('mdlFel',m['model_felieton']||'gemini-2.5-flash');}
 async function saveModels(){var b=document.getElementById('saveMBtn');b.textContent='...';b.disabled=true;
 var nv=document.getElementById('mdlNews')?document.getElementById('mdlNews').value:'',tv=document.getElementById('mdlTemp')?document.getElementById('mdlTemp').value:'',fv=document.getElementById('mdlFel')?document.getElementById('mdlFel').value:'';
 var saves=[];
@@ -312,43 +313,73 @@ if(fv)saves.push(fetch('/api/settings/model_felieton',{method:'PUT',headers:{'Co
 await Promise.all(saves);
 b.textContent='OK';setTimeout(function(){b.textContent='Zapisz modele';b.disabled=false},2e3)}
 async function saveSetting(k,tid,bid){var v=document.getElementById(tid).value,b=document.getElementById(bid);b.textContent='...';b.disabled=true;await fetch('/api/settings/'+k,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='ok';setTimeout(function(){b.textContent='Zapisz';b.disabled=false},2e3)}
-async function saveFelWebhook(){var v=document.getElementById('felWebhookIn').value.trim(),b=document.getElementById('felWebhookBtn'),st=document.getElementById('felWebhookSt');if(!v)return;b.textContent='...';b.disabled=true;await fetch('/api/settings/felieton_webhook_url',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;if(st){st.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';st.style.opacity='1';setTimeout(function(){st.style.opacity='0'},3000)}}
+async function saveFelWebhook(){saveWebhook('felieton_webhook_url','felWebhookIn','felWebhookBtn','felWebhookSt')}
 async function saveApiKey(){var v=document.getElementById('orKeyIn').value.trim(),b=document.getElementById('orKeyBtn'),st=document.getElementById('orKeySt');if(!v)return;b.textContent='...';b.disabled=true;await fetch('/api/settings/openrouter_api_key',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;if(st){st.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';st.style.opacity='1';setTimeout(function(){st.style.opacity='0'},3000)}}
+async function saveWebhook(key,inId,btnId,stId){var v=document.getElementById(inId).value.trim(),b=document.getElementById(btnId),st=document.getElementById(stId);if(!v)return;b.textContent='...';b.disabled=true;await fetch('/api/settings/'+key,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;if(st){st.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';st.style.opacity='1';setTimeout(function(){st.style.opacity='0'},3000)}}
 async function refilter(){var b=document.getElementById('refilterBtn');b.textContent='...';b.disabled=true;await fetch('/api/pipeline/refilter',{method:'POST'});var p=setInterval(async function(){try{var s=await fetch('/api/pipeline/status').then(function(r){return r.json()});if(!s.isRefiltering){clearInterval(p);await load();b.textContent='Przefiltruj';b.disabled=false}}catch(e){}},3e3)}
 if(!S.settingsTab)S.settingsTab='newsy';
 function renderSettings(){
 var models=[
-{g:'Google',items:[
-{v:'gemini-2.5-flash',l:'Gemini 2.5 Flash'},
-{v:'gemini-2.5-pro',l:'Gemini 2.5 Pro'},
-{v:'gemini-2.0-flash',l:'Gemini 2.0 Flash'},
-]},
-{g:'Anthropic (OpenRouter)',items:[
-{v:'anthropic/claude-sonnet-4-5',l:'Claude Sonnet 4.5'},
-{v:'anthropic/claude-haiku-4-5',l:'Claude Haiku 4.5'},
-{v:'anthropic/claude-opus-4-5',l:'Claude Opus 4.5'},
-]},
-{g:'OpenAI (OpenRouter)',items:[
-{v:'openai/gpt-4o',l:'GPT-4o'},
-{v:'openai/gpt-4o-mini',l:'GPT-4o Mini'},
-{v:'openai/o4-mini',l:'o4-mini'},
-]},
+  {g:'Google',items:[{v:'gemini-2.5-flash',l:'Gemini 2.5 Flash'},{v:'gemini-2.5-pro',l:'Gemini 2.5 Pro'},{v:'gemini-2.0-flash',l:'Gemini 2.0 Flash'}]},
+  {g:'Anthropic (OpenRouter)',items:[{v:'anthropic/claude-sonnet-4-5',l:'Claude Sonnet 4.5'},{v:'anthropic/claude-haiku-4-5',l:'Claude Haiku 4.5'},{v:'anthropic/claude-opus-4-5',l:'Claude Opus 4.5'}]},
+  {g:'OpenAI (OpenRouter)',items:[{v:'openai/gpt-4o',l:'GPT-4o'},{v:'openai/gpt-4o-mini',l:'GPT-4o Mini'},{v:'openai/o4-mini',l:'o4-mini'}]},
 ];
-function sel(id){return'<select class="rv-input" id="'+id+'" style="margin:0;padding:8px 12px">'+models.map(function(grp){return'<optgroup label="'+grp.g+'">'+grp.items.map(function(m){return'<option value="'+m.v+'">'+esc(m.l)+'</option>'}).join('')+'</optgroup>'}).join('')+'</select>';}
-var tabs=['newsy','felietony'];
-var tabsHtml='<div class="toolbar-tabs" style="margin-bottom:0">'+tabs.map(function(t){return'<button class="ttab'+(S.settingsTab===t?' on':'')+'" onclick="S.settingsTab=\''+t+'\';renderSettings()">'+t.charAt(0).toUpperCase()+t.slice(1)+'</button>'}).join('')+'</div>';
-
-var orKeyBlock='<div class="st-block"><div class="st-lbl">OpenRouter API Key</div><div class="st-hint">Wymagany do modeli spoza Gemini (Claude, GPT, Llama itp.)</div><div style="display:flex;gap:8px;align-items:center;margin-top:6px"><input class="rv-input" id="orKeyIn" type="password" placeholder="sk-or-..." style="margin:0;flex:1"><button class="btn" id="orKeyBtn" onclick="saveApiKey()">Zapisz</button><span id="orKeySt" style="opacity:0;transition:opacity .4s;display:flex;align-items:center"></span></div></div>';
-
+function sel(id){
+  return '<select class="rv-input" id="'+id+'" style="margin:0;padding:8px 12px">'
+    +models.map(function(grp){
+      return '<optgroup label="'+grp.g+'">'+grp.items.map(function(m){return '<option value="'+m.v+'">'+esc(m.l)+'</option>'}).join('')+'</optgroup>';
+    }).join('')+'</select>';
+}
+function whBlock(label,hint,inId,key){
+  var btnId=inId+'Btn',stId=inId+'St';
+  var onclick='saveWebhook('+JSON.stringify(key)+','+JSON.stringify(inId)+','+JSON.stringify(btnId)+','+JSON.stringify(stId)+')';
+  return ['<div class="st-block">',
+    '<div class="st-lbl">',label,'</div>',
+    '<div class="st-hint">',hint,'</div>',
+    '<div style="display:flex;gap:8px;align-items:center;margin-top:6px">',
+    '<input class="rv-input" id="',inId,'" placeholder="https://hook.eu2.make.com/..." style="margin:0;flex:1">',
+    '<button class="btn" id="',btnId,'" onclick="',onclick,'">Zapisz</button>',
+    '<span id="',stId,'" style="opacity:0;transition:opacity .4s;display:flex;align-items:center"></span>',
+    '</div></div>'].join('');
+}
+var orKeyBlock=['<div class="st-block">',
+  '<div class="st-lbl">OpenRouter API Key</div>',
+  '<div class="st-hint">Wymagany do modeli spoza Gemini (Claude, GPT, Llama itp.)</div>',
+  '<div style="display:flex;gap:8px;align-items:center;margin-top:6px">',
+  '<input class="rv-input" id="orKeyIn" type="password" placeholder="sk-or-..." style="margin:0;flex:1">',
+  '<button class="btn" id="orKeyBtn" onclick="saveApiKey()">Zapisz</button>',
+  '<span id="orKeySt" style="opacity:0;transition:opacity .4s;display:flex;align-items:center"></span>',
+  '</div></div>'].join('');
+var tabs=['newsy','recenzje','felietony'];
+var tabsHtml='<div class="toolbar-tabs" style="margin-bottom:0">'+tabs.map(function(t){
+  var cls='ttab'+(S.settingsTab===t?' on':'');
+  return '<button class="'+cls+'" onclick="S.settingsTab='+JSON.stringify(t)+';renderSettings()">'+t.charAt(0).toUpperCase()+t.slice(1)+'</button>';
+}).join('')+'</div>';
 var bodyHtml='';
 if(S.settingsTab==='newsy'){
-bodyHtml='<div class="panel">'+orKeyBlock+'<div class="st-block"><div class="st-lbl">Modele AI</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px"><div><div style="font-size:12px;font-weight:600;color:var(--dim);margin-bottom:4px">FILTROWANIE I KLASTROWANIE</div><div id="mdlNewsWrap">'+sel('mdlNews')+'</div></div><div><div style="font-size:12px;font-weight:600;color:var(--dim);margin-bottom:4px">OCENA TEMPERATURY</div><div id="mdlTempWrap">'+sel('mdlTemp')+'</div></div></div><div style="margin-top:10px"><button class="btn" id="saveMBtn" onclick="saveModels()">Zapisz modele</button></div></div><div class="st-block"><div class="st-lbl">Router instructions</div><div class="st-hint">Zasady filtrowania i grupowania newsów</div><textarea class="st-ta" id="routerTa" style="min-height:200px"></textarea><div style="margin-top:10px"><button class="btn" id="saveRBtn" onclick="saveSetting(\'router_instructions\',\'routerTa\',\'saveRBtn\')">Zapisz</button></div></div><div class="st-block"><div class="st-lbl">Temperature instructions</div><div class="st-hint">Instrukcje dla modelu oceniającego potencjał (1–10) — osobne wywołanie</div><textarea class="st-ta" id="tempTa" style="min-height:160px"></textarea><div style="margin-top:10px"><button class="btn" id="saveTBtn" onclick="saveSetting(\'temperature_instructions\',\'tempTa\',\'saveTBtn\')">Zapisz</button></div></div><div class="st-block" style="display:flex;align-items:center;gap:14px"><button class="btn-run" id="refilterBtn" onclick="refilter()">Przefiltruj</button><span style="font-size:13px;color:var(--dim)">Ponownie klastruje i ocenia temperaturę wolnych newsów</span></div></div>';
+  var modelsBlock=['<div class="st-block"><div class="st-lbl">Modele AI</div>',
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px">',
+    '<div><div style="font-size:12px;font-weight:600;color:var(--dim);margin-bottom:4px">FILTROWANIE I KLASTROWANIE</div><div id="mdlNewsWrap">',sel('mdlNews'),'</div></div>',
+    '<div><div style="font-size:12px;font-weight:600;color:var(--dim);margin-bottom:4px">OCENA TEMPERATURY</div><div id="mdlTempWrap">',sel('mdlTemp'),'</div></div>',
+    '</div><div style="margin-top:10px"><button class="btn" id="saveMBtn" onclick="saveModels()">Zapisz modele</button></div></div>'].join('');
+  var routerBlock='<div class="st-block"><div class="st-lbl">Router instructions</div><div class="st-hint">Zasady filtrowania i grupowania newsów</div><textarea class="st-ta" id="routerTa" style="min-height:200px"></textarea><div style="margin-top:10px"><button class="btn" id="saveRBtn" onclick="saveSetting(&#39;router_instructions&#39;,&#39;routerTa&#39;,&#39;saveRBtn&#39;)">Zapisz</button></div></div>';
+  var tempBlock='<div class="st-block"><div class="st-lbl">Temperature instructions</div><div class="st-hint">Instrukcje dla modelu oceniającego potencjał (1-10) - osobne wywołanie</div><textarea class="st-ta" id="tempTa" style="min-height:160px"></textarea><div style="margin-top:10px"><button class="btn" id="saveTBtn" onclick="saveSetting(&#39;temperature_instructions&#39;,&#39;tempTa&#39;,&#39;saveTBtn&#39;)">Zapisz</button></div></div>';
+  var refilterBlock='<div class="st-block" style="display:flex;align-items:center;gap:14px"><button class="btn-run" id="refilterBtn" onclick="refilter()">Przefiltruj</button><span style="font-size:13px;color:var(--dim)">Ponownie klastruje i ocenia temperaturę wolnych newsów</span></div>';
+  bodyHtml='<div class="panel">'+orKeyBlock+whBlock('Webhook Make.com — produkcja newsów','URL webhooka uruchamianego przyciskiem Produkcja na karcie newsa','newsWebhookIn','news_webhook_url')+modelsBlock+routerBlock+tempBlock+refilterBlock+'</div>';
+}else if(S.settingsTab==='recenzje'){
+  bodyHtml='<div class="panel">'+whBlock('Webhook Make.com — produkcja recenzji','URL webhooka uruchamianego przyciskiem Produkcja na karcie recenzji','reviewWebhookIn','review_webhook_url')+'</div>';
 }else if(S.settingsTab==='felietony'){
-bodyHtml='<div class="panel">'+orKeyBlock+'<div class="st-block"><div class="st-lbl">Webhook Make.com</div><div class="st-hint">URL webhooka uruchamiającego scenariusz produkcji felietonu</div><div style="display:flex;gap:8px;align-items:center;margin-top:6px"><input class="rv-input" id="felWebhookIn" placeholder="https://hook.eu2.make.com/..." style="margin:0;flex:1"><button class="btn" id="felWebhookBtn" onclick="saveFelWebhook()">Zapisz</button><span id="felWebhookSt" style="opacity:0;transition:opacity .4s;display:flex;align-items:center"></span></div></div><div class="st-block"><div class="st-lbl">Model AI</div><div style="max-width:380px;margin-top:10px"><div style="font-size:12px;font-weight:600;color:var(--dim);margin-bottom:4px">GENERATOR FELIETONÓW</div><div id="mdlFelWrap">'+sel('mdlFel')+'</div></div><div style="margin-top:10px"><button class="btn" id="saveMBtn" onclick="saveModels()">Zapisz model</button></div></div><div class="st-block"><div class="st-lbl">Felieton instructions</div><div class="st-hint">Instrukcje dla generatora pomysłów na felietony</div><textarea class="st-ta" id="felTa" style="min-height:200px"></textarea><div style="margin-top:10px"><button class="btn" id="saveFBtn" onclick="saveSetting(\'felieton_instructions\',\'felTa\',\'saveFBtn\')">Zapisz</button></div></div></div>';
+  var felModelBlock=['<div class="st-block"><div class="st-lbl">Model AI</div>',
+    '<div style="max-width:380px;margin-top:10px">',
+    '<div style="font-size:12px;font-weight:600;color:var(--dim);margin-bottom:4px">GENERATOR FELIETONÓW</div>',
+    '<div id="mdlFelWrap">',sel('mdlFel'),'</div>',
+    '</div><div style="margin-top:10px"><button class="btn" id="saveMBtn" onclick="saveModels()">Zapisz model</button></div></div>'].join('');
+  var felInstBlock='<div class="st-block"><div class="st-lbl">Felieton instructions</div><div class="st-hint">Instrukcje dla generatora pomysłów na felietony</div><textarea class="st-ta" id="felTa" style="min-height:200px"></textarea><div style="margin-top:10px"><button class="btn" id="saveFBtn" onclick="saveSetting(&#39;felieton_instructions&#39;,&#39;felTa&#39;,&#39;saveFBtn&#39;)">Zapisz</button></div></div>';
+  bodyHtml='<div class="panel">'+orKeyBlock+whBlock('Webhook Make.com — produkcja felietonów','URL webhooka uruchamianego przyciskiem wysłania w generatorze','felWebhookIn','felieton_webhook_url')+felModelBlock+felInstBlock+'</div>';
 }
-
-setH(document.getElementById('v-settings-wrap'),'<div class="toolbar"><div class="toolbar-left"><div class="section-title">Ustawienia</div></div>'+tabsHtml+'</div>'+bodyHtml);
-loadSettings()}
+setH(document.getElementById('v-settings-wrap'),
+  '<div class="toolbar"><div class="toolbar-left"><div class="section-title">Ustawienia</div></div>'+tabsHtml+'</div>'+bodyHtml);
+loadSettings();}
 
 var tabN={free:'Newsy',taken:'Wzięte',kanal:'Slack',feeds:'Feedy'};
 function setTab(t){S.tab=t;S.allDays=false;['free','taken','kanal','feeds'].forEach(function(x){document.getElementById('v-'+x).style.display=x===t?'':'none';document.getElementById('tab-'+x).classList.toggle('on',x===t)});document.getElementById('secTitle').textContent=tabN[t];if(t==='taken')renderTaken();else if(t==='feeds')renderFeeds();else if(t==='kanal')loadKanal();else renderFree()}

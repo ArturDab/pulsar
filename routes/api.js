@@ -72,14 +72,15 @@ router.post('/news/:id/produce', async (req, res) => {
     const item = rows[0];
     if (!item) return res.status(404).json({ error: 'Not found' });
 
-    const makeUrl = process.env.MAKE_WEBHOOK_URL;
-    if (makeUrl) {
-      const r = await fetch(makeUrl, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: item.url })
-      });
-      if (!r.ok) console.error('[Make] Webhook returned:', r.status);
-    }
+    const { rows: sr } = await pool.query("SELECT value FROM settings WHERE key='news_webhook_url'");
+    const makeUrl = sr[0]?.value || process.env.MAKE_WEBHOOK_URL;
+    if (!makeUrl) return res.status(400).json({ error: 'Brak URL webhooka. Dodaj go w Ustawieniach → Newsy.' });
+
+    const r = await fetch(makeUrl, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: item.url })
+    });
+    if (!r.ok) { const txt = await r.text().catch(() => ''); return res.status(502).json({ error: `Make.com webhook błąd ${r.status}: ${txt}` }); }
 
     const { rows: updated } = await pool.query(
       "UPDATE news_items SET status='produced', produce_count = COALESCE(produce_count, 0) + 1 WHERE id=$1 RETURNING produce_count",
@@ -121,8 +122,9 @@ router.post('/manual-send', async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'URL required' });
   try { new URL(url); } catch { return res.status(400).json({ error: 'Invalid URL' }); }
-  const makeUrl = process.env.MAKE_WEBHOOK_URL;
-  if (!makeUrl) return res.status(501).json({ error: 'MAKE_WEBHOOK_URL not set' });
+  const { rows: sr } = await pool.query("SELECT value FROM settings WHERE key='news_webhook_url'");
+  const makeUrl = sr[0]?.value || process.env.MAKE_WEBHOOK_URL;
+  if (!makeUrl) return res.status(400).json({ error: 'Brak URL webhooka. Dodaj go w Ustawieniach → Newsy.' });
   try {
     const r = await fetch(makeUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
     if (!r.ok) throw new Error(`Make: ${r.status}`);
@@ -267,14 +269,17 @@ router.post('/reviews/:id/produce', async (req, res) => {
     const item = rows[0];
     if (!item) return res.status(404).json({ error: 'Not found' });
 
-    const makeUrl = process.env.MAKE_REVIEW_WEBHOOK_URL || process.env.MAKE_WEBHOOK_URL;
-    if (makeUrl && item.links && item.links.length) {
-      // Send each link as a separate webhook call (like news)
+    const { rows: sr } = await pool.query("SELECT value FROM settings WHERE key='review_webhook_url'");
+    const makeUrl = sr[0]?.value || process.env.MAKE_REVIEW_WEBHOOK_URL || process.env.MAKE_WEBHOOK_URL;
+    if (!makeUrl) return res.status(400).json({ error: 'Brak URL webhooka. Dodaj go w Ustawieniach → Recenzje.' });
+
+    if (item.links && item.links.length) {
       for (const link of item.links) {
-        await fetch(makeUrl, {
+        const r = await fetch(makeUrl, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: link })
-        }).catch(e => console.error('[Make] Review webhook failed:', e.message));
+          body: JSON.stringify({ url: link, title: item.game_title, notes: item.notes || '' })
+        });
+        if (!r.ok) { const txt = await r.text().catch(() => ''); return res.status(502).json({ error: `Make.com webhook błąd ${r.status}: ${txt}` }); }
       }
     }
 
