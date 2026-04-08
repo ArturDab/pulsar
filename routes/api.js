@@ -181,6 +181,34 @@ router.get('/slack/messages', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Quick Slack sync - check free items against Slack URLs without running full pipeline
+router.post('/slack/sync', async (req, res) => {
+  try {
+    const { getSlackUrlMap } = require('../services/slack');
+    const rawMap = await getSlackUrlMap(7);
+    if (!rawMap.size) return res.json({ synced: 0 });
+
+    // Normalize slack URLs
+    const slackMap = new Map();
+    for (const [url, user] of rawMap) {
+      const n = url.toLowerCase().replace(/\/+$/, '');
+      slackMap.set(n, user);
+    }
+
+    const { rows: freeItems } = await pool.query("SELECT id, url FROM news_items WHERE status IN ('free','reserved','produced')");
+    let synced = 0;
+    for (const item of freeItems) {
+      const n = item.url.toLowerCase().replace(/\/+$/, '');
+      if (slackMap.has(n)) {
+        await pool.query("UPDATE news_items SET status='slack_taken', reserved_by=$1 WHERE id=$2", [slackMap.get(n), item.id]);
+        synced++;
+      }
+    }
+    console.log(`[Slack sync] Marked ${synced} items as taken`);
+    res.json({ synced });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // --- REVIEWS ---
 router.get('/reviews', async (req, res) => {
   try {
