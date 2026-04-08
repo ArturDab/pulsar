@@ -84,23 +84,12 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .rv-input{width:100%;font-size:14px;padding:10px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);outline:none;margin-bottom:10px;font-family:var(--body);transition:all .2s}.rv-input:focus{border-color:var(--neon-br);background:var(--surface2)}.rv-input::placeholder{color:var(--dimmer)}
 .rv-link-row{display:flex;gap:6px;margin-bottom:6px;align-items:center}.rv-link-row input{flex:1;margin:0}
 .rv-link-rm{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--red);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;transition:all .15s;font-family:var(--body)}.rv-link-rm:hover{background:rgba(255,68,68,.1);border-color:var(--red-dim)}
-.rv-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;min-width:0}@media(max-width:900px){.rv-grid{grid-template-columns:1fr}}
-.rv-grid>div{min-width:0;overflow:hidden}
-.rv-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;transition:all .2s;min-width:0;overflow:hidden}[data-theme="light"] .rv-card{background:#fff;border-color:rgba(0,0,0,.08)}.rv-card:hover{border-color:var(--border2)}.rv-card.produced{border-color:var(--neon-br)}
+.rv-list{display:grid;grid-template-columns:1fr 1fr;gap:14px;min-width:0}
+.rv-list>div{min-width:0}
+@media(max-width:900px){.rv-list{grid-template-columns:1fr}}
+.rv-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;transition:all .2s;min-width:0;overflow:hidden}[data-theme="light"] .rv-card{background:#fff;border-color:rgba(0,0,0,.08)}.rv-card:hover{border-color:var(--border2)}.rv-card.produced{border-color:var(--neon-br)}
 .rv-title{font-size:18px;font-weight:700;margin-bottom:8px}.rv-links{font-size:12px;color:var(--dim);margin-bottom:8px}.rv-links a{color:var(--cyan);text-decoration:none;display:block;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rv-links a:hover{text-decoration:underline}
 .rv-notes{font-size:13px;color:var(--text2);font-style:italic;margin-bottom:10px}.rv-meta{font-size:11px;color:var(--dim);margin-bottom:12px;font-weight:600}.rv-acts{display:flex;gap:8px}
-.feed-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;height:fit-content;min-width:0;overflow:hidden}[data-theme="light"] .feed-panel{background:#fff;border-color:rgba(0,0,0,.08)}
-.feed-panel h3{font-family:var(--display);font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
-.fg{border-bottom:1px solid var(--border);overflow:hidden}.fg:last-child{border-bottom:none}
-.fg-head{display:flex;align-items:center;gap:12px;padding:14px 0;cursor:pointer;user-select:none}.fg-head:hover .fg-title{color:var(--neon)}
-.fg-arrow{width:16px;height:16px;color:var(--dim);transition:transform .25s;flex-shrink:0}.fg.open .fg-arrow{transform:rotate(90deg)}
-.fg-title{font-family:var(--display);font-size:15px;font-weight:700;letter-spacing:.02em;flex:1;transition:color .15s}
-.fg-body{padding:0 0 14px 28px;display:none}.fg.open .fg-body{display:block}
-.fg-rv{padding:5px 0;display:flex;gap:8px;align-items:center;border-bottom:1px solid rgba(255,255,255,.03)}.fg-rv:last-child{border-bottom:none}
-[data-theme="light"] .fg-rv{border-bottom-color:rgba(0,0,0,.04)}
-.fg-rv a{font-size:13px;font-weight:500;color:var(--text2);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fg-rv a:hover{color:var(--neon)}
-.fg-rv-src{font-size:11px;color:var(--dimmer);font-weight:500;white-space:nowrap;flex-shrink:0}
-.fg-empty{font-size:13px;color:var(--dim);padding:16px 0}
 .panel{border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);overflow:hidden}[data-theme="light"] .panel{background:#fff;border-color:rgba(0,0,0,.08)}
 .st-block{padding:20px;border-top:1px solid var(--border)}.st-block:first-child{border-top:none}
 .st-lbl{font-family:var(--display);font-size:14px;font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
@@ -153,7 +142,7 @@ footer{max-width:1300px;margin:0 auto;padding:28px 36px 36px;display:flex;justif
 <div id="mod-reviews" class="rv-section">
 <div class="toolbar" style="padding-top:30px"><div class="toolbar-left"><div class="section-title">Recenzje</div></div></div>
 <div class="rv-form"><h3>Nowa recenzja</h3><input class="rv-input" id="rvTitle" placeholder="Tytuł gry, np. Resident Evil Requiem"><div id="rvLinks"><div class="rv-link-row"><input class="rv-input" style="margin:0" placeholder="https://... (link do recenzji źródłowej)" onkeydown="if(event.key==='Enter'){event.preventDefault();addRvLink()}"></div></div><div style="display:flex;gap:8px;margin-bottom:10px"><button class="btn-run" style="font-size:11px;padding:7px 14px" onclick="addRvLink()">+ Dodaj link</button></div><textarea class="rv-input" id="rvNotes" placeholder="Notatki dla AI (opcjonalnie)" rows="2" style="resize:vertical"></textarea><button class="btn-run" onclick="createReview()">Utwórz recenzję</button></div>
-<div class="rv-grid"><div id="rvList"></div><div><div class="feed-panel"><h3>Najnowsze recenzje w sieci</h3><div id="feedList"><div class="fg-empty">Ładowanie...</div></div></div></div></div>
+<div id="rvList"></div>
 </div>
 </div>
 
@@ -178,8 +167,6 @@ var iRocket='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-w
 var iShield='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
 var iZap='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
 var iX='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-var iChev='<svg class="fg-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
-
 function esc(s){if(!s)return'';var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function ago(t){if(!t)return'\u2014';var d=Math.floor((Date.now()-new Date(t))/1e3);if(d<60)return'teraz';if(d<3600)return Math.floor(d/60)+'m';if(d<86400)return Math.floor(d/3600)+'h';return Math.floor(d/86400)+'d'}
 function fmtD(t){if(!t)return'\u2014';return new Date(t).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}
@@ -201,7 +188,7 @@ setTheme(isDark);document.getElementById('themeBtn').onclick=function(){setTheme
 function tick(){var n=new Date();document.getElementById('clock').textContent=n.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' \u00b7 '+n.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit',year:'numeric'})}
 tick();setInterval(tick,1e3);
 
-function showMod(m){S.module=m;document.getElementById('mod-news').style.display=m==='news'?'':'none';document.getElementById('mod-reviews').style.display=m==='reviews'?'block':'none';document.getElementById('mod-felietony').style.display=m==='felietony'?'block':'none';document.querySelectorAll('.nav-pill').forEach(function(b,i){b.classList.toggle('on',i===(m==='news'?0:m==='reviews'?1:2))});if(m==='reviews'){loadReviews();loadFeed()}if(m==='felietony')loadFelietony()}
+function showMod(m){S.module=m;document.getElementById('mod-news').style.display=m==='news'?'':'none';document.getElementById('mod-reviews').style.display=m==='reviews'?'block':'none';document.getElementById('mod-felietony').style.display=m==='felietony'?'block':'none';document.querySelectorAll('.nav-pill').forEach(function(b,i){b.classList.toggle('on',i===(m==='news'?0:m==='reviews'?1:2))});if(m==='reviews'){loadReviews()}if(m==='felietony')loadFelietony()}
 
 async function load(){try{var[items,tk,fd,st,pi]=await Promise.all([fetch('/api/news').then(function(r){return r.json()}),fetch('/api/news/taken').then(function(r){return r.json()}),fetch('/api/feeds').then(function(r){return r.json()}),fetch('/api/stats').then(function(r){return r.json()}),fetch('/api/pipeline/status').then(function(r){return r.json()})]);S.items=items;S.taken=tk;S.feeds=fd;S.stats=st;S.pipeline=pi;render()}catch(e){console.error(e)}}
 function render(){document.getElementById('mFree').textContent=S.stats.free||0;document.getElementById('mRes').textContent=S.stats.reserved||0;document.getElementById('mProd').textContent=S.stats.produced||0;document.getElementById('mFeeds').textContent=S.feeds.filter(function(f){return f.active}).length;var lr=S.pipeline.lastRun,ts=lr?(lr.finished_at||lr.started_at):null;document.getElementById('sRun').textContent='run: '+ago(ts);if(S.tab==='free')renderFree();if(S.tab==='taken')renderTaken();if(S.tab==='feeds')renderFeeds()}
@@ -271,16 +258,12 @@ function setTab(t){S.tab=t;S.allDays=false;['free','taken','kanal','feeds','sett
 
 async function loadReviews(){try{S.reviews=await fetch('/api/reviews').then(function(r){return r.json()});renderReviews()}catch(e){console.error(e)}}
 function renderReviews(){var el=document.getElementById('rvList');if(!S.reviews.length){el.innerHTML='<div class="empty">Brak recenzji. Utwórz pierwszą.</div>';return}
-el.innerHTML=S.reviews.map(function(r){var ip=r.status==='produced',pc=r.produce_count||0;return'<div class="rv-card'+(ip?' produced':'')+'"><div class="rv-title">'+esc(r.game_title)+'</div>'+(r.links&&r.links.length?'<div class="rv-links">'+r.links.map(function(l){return'<a href="'+esc(l)+'" target="_blank">'+esc(l)+'</a>'}).join('')+'</div>':'')+(r.notes?'<div class="rv-notes">'+esc(r.notes)+'</div>':'')+'<div class="rv-meta">'+fmtD(r.created_at)+(pc?' \u00b7 wysłano '+pc+'x':'')+'</div><div class="rv-acts"><div class="c-btn gr" style="max-width:200px" onclick="produceReview('+r.id+')">'+iRocket+' Produkcja'+(pc?'<span class="pc-pip">'+pc+'</span>':'')+'</div><div class="c-btn cy" style="max-width:100px;border-color:var(--red-dim);color:var(--red)" onclick="deleteReview('+r.id+')">'+iX+' Usuń</div></div></div>'}).join('')}
+el.innerHTML='<div class="rv-list">'+S.reviews.map(function(r){var ip=r.status==='produced',pc=r.produce_count||0;return'<div class="rv-card'+(ip?' produced':'')+'"><div class="rv-title">'+esc(r.game_title)+'</div>'+(r.links&&r.links.length?'<div class="rv-links">'+r.links.map(function(l){return'<a href="'+esc(l)+'" target="_blank">'+esc(l)+'</a>'}).join('')+'</div>':'')+(r.notes?'<div class="rv-notes">'+esc(r.notes)+'</div>':'')+'<div class="rv-meta">'+fmtD(r.created_at)+(pc?' \u00b7 wysłano '+pc+'x':'')+'</div><div class="rv-acts"><div class="c-btn gr" style="max-width:200px" onclick="produceReview('+r.id+')">'+iRocket+' Produkcja'+(pc?'<span class="pc-pip">'+pc+'</span>':'')+'</div><div class="c-btn cy" style="max-width:100px;border-color:var(--red-dim);color:var(--red)" onclick="deleteReview('+r.id+')">'+iX+' Usuń</div></div></div>'}).join('')+'</div>'}
 function addRvLink(){var c=document.getElementById('rvLinks'),row=document.createElement('div');row.className='rv-link-row';row.innerHTML='<input class="rv-input" style="margin:0" placeholder="https://..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();addRvLink()}"><button class="rv-link-rm" onclick="this.parentNode.remove()">\u00d7</button>';c.appendChild(row);row.querySelector('input').focus()}
 async function createReview(){var title=document.getElementById('rvTitle').value.trim();if(!title){showErr('Podaj tytuł gry');return}var inputs=document.querySelectorAll('#rvLinks input'),links=[].map.call(inputs,function(i){return i.value.trim()}).filter(Boolean),notes=document.getElementById('rvNotes').value.trim();try{var r=await fetch('/api/reviews',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game_title:title,links:links,notes:notes})});if(!r.ok){var d=await r.json();throw new Error(d.error)}document.getElementById('rvTitle').value='';document.getElementById('rvNotes').value='';document.getElementById('rvLinks').innerHTML='<div class="rv-link-row"><input class="rv-input" style="margin:0" placeholder="https://... (link do recenzji źródłowej)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addRvLink()}"></div>';await loadReviews()}catch(e){showErr(e.message)}}
 async function produceReview(id){try{var r=await fetch('/api/reviews/'+id+'/produce',{method:'POST'});if(!r.ok){var d=await r.json();throw new Error(d.error)}await loadReviews()}catch(e){showErr(e.message)}}
 async function deleteReview(id){if(!confirm('Usunąć recenzję?'))return;try{await fetch('/api/reviews/'+id,{method:'DELETE'});await loadReviews()}catch(e){showErr(e.message)}}
 
-async function loadFeed(){var el=document.getElementById('feedList');try{var data=await fetch('/api/metacritic').then(function(r){return r.json()});if(!data.length){el.innerHTML='<div class="fg-empty">Brak danych z feedów recenzji.</div>';return}
-el.innerHTML=data.slice(0,25).map(function(r){
-return'<div class="fg-rv"><a href="'+esc(r.url)+'" target="_blank">'+esc(r.title)+'</a><div class="fg-rv-src">'+esc(r.source||'')+(r.date?' \u00b7 '+esc(r.date):'')+'</div></div>'
-}).join('')}catch(e){el.innerHTML='<div class="fg-empty">Błąd: '+esc(e.message)+'</div>'}}
 // --- FELIETONY ---
 async function loadFelietony(){try{S.felietony=await fetch('/api/felietony').then(function(r){return r.json()});renderFelietony()}catch(e){console.error(e)}}
 
