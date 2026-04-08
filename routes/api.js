@@ -302,7 +302,7 @@ router.get('/felietony', async (req, res) => {
 
 router.post('/felietony/generate', async (req, res) => {
   try {
-    const { direction } = req.body;
+    const { direction, current_events } = req.body;
     const { rows: settingsRows } = await pool.query("SELECT value FROM settings WHERE key='felieton_instructions'");
     const instructions = settingsRows[0]?.value || '';
 
@@ -311,9 +311,13 @@ router.post('/felietony/generate', async (req, res) => {
     const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
-    const prompt = `${instructions}
+    const currentCtx = current_events
+      ? `\nWAŻNE: Propozycje MUSZĄ nawiązywać do bieżących wydarzeń w branży gier. Najpierw przeszukaj internet, sprawdź co się dzieje w gamingu w ostatnich dniach (premiery, kontrowersje, ogłoszenia, trendy), a potem zaproponuj felietony powiązane z aktualnymi tematami. Każdy brief powinien odwoływać się do konkretnego, świeżego wydarzenia.`
+      : '';
 
-${direction ? 'Kierunek tematyczny wskazany przez redaktora: ' + direction : 'Redaktor nie podał kierunku - zaproponuj kreatywnie różnorodne tematy.'}
+    const prompt = `${instructions}
+${currentCtx}
+${direction ? '\nKierunek tematyczny wskazany przez redaktora: ' + direction : '\nRedaktor nie podał kierunku - zaproponuj kreatywnie różnorodne tematy.'}
 
 Wygeneruj DOKŁADNIE 10 propozycji felietonów. Dla każdej podaj:
 - title: chwytliwy, prowokujący tytuł roboczy (po polsku)
@@ -322,14 +326,14 @@ Wygeneruj DOKŁADNIE 10 propozycji felietonów. Dla każdej podaj:
 Odpowiedz TYLKO czystym JSON array, bez żadnego tekstu przed ani po:
 [{"title":"...","brief":"..."}]`;
 
-    const gRes = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.9, maxOutputTokens: 4096 }
-      })
-    });
+    const body = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.9, maxOutputTokens: 4096 }
+    };
+    // Enable Google Search grounding when current events requested
+    if (current_events) body.tools = [{ google_search: {} }];
+
+    const gRes = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
     if (!gRes.ok) {
       const body = await gRes.text().catch(() => '');
