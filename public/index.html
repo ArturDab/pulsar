@@ -71,6 +71,7 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .c-hl{font-size:20px;font-weight:700;line-height:1.3;color:var(--text);margin-bottom:8px;letter-spacing:-.02em}.c-hl a{color:inherit;text-decoration:none;transition:color .15s}.c-hl a:hover{color:var(--neon)}
 .c-sum{font-size:14px;color:var(--text2);line-height:1.55;margin-bottom:auto;padding-bottom:14px}
 .c-meta{font-size:12px;color:var(--dim);margin-bottom:14px;font-weight:600;display:flex;align-items:center;gap:6px}.c-meta-dot{width:3px;height:3px;border-radius:50%;background:var(--dimmer)}
+.c-src-count{font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:var(--surface2);color:var(--dim);border:1px solid var(--border)}
 .c-acts{display:flex;gap:8px}
 .c-btn{flex:1;padding:10px 0;border-radius:10px;font-size:13px;font-weight:700;text-align:center;cursor:pointer;border:1px solid;transition:all .2s;font-family:var(--body);display:flex;align-items:center;justify-content:center;gap:7px}.c-btn:active{transform:scale(.96)}.c-btn svg{width:15px;height:15px;flex-shrink:0}
 .c-btn.cy{border-color:var(--cyan-br);color:var(--cyan);background:var(--cyan-bg)}.c-btn.cy:hover{background:rgba(0,212,255,.12)}
@@ -197,18 +198,18 @@ async function doSend(){var i=document.getElementById('sendUrl'),u=i.value.trim(
 var _pt=null;async function doSlackSync(){var b=document.getElementById('syncBtn');b.disabled=true;b.textContent='...';try{var r=await fetch('/api/slack/sync',{method:'POST'});var d=await r.json();b.textContent=d.synced?d.synced+' zajętych':'OK';await load();setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}catch(e){b.textContent='Błąd';setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}}
 async function doRun(){var b=document.getElementById('runBtn');b.disabled=true;b.textContent='...';await fetch('/api/pipeline/run',{method:'POST'});if(_pt)clearInterval(_pt);_pt=setInterval(async function(){try{var p=await fetch('/api/pipeline/status').then(function(r){return r.json()});if(!p.isRunning){clearInterval(_pt);_pt=null;await load();b.disabled=false;b.textContent='Pobierz nowe'}}catch(e){}},3e3)}
 
-function newsCard(item){var t=Math.min(10,Math.max(1,item.temperature||5)),st=item.status||'free',pc=item.produce_count||0;
+function newsCard(item){var t=Math.min(10,Math.max(1,item.temperature||5)),st=item.status||'free',pc=item.produce_count||0,sc=item._sources||1;
 var isRes=st==='reserved',isProd=st==='produced',isDis=st==='dismissed',isRej=st==='rejected',isSlack=st==='slack_taken';
+var isMySlack=isSlack&&item.reserved_by&&item.reserved_by.indexOf('Artur')>=0;
 var cls='card'+(isRes||isMySlack?' st-res':'')+(isProd?' st-prod':'')+(isRej?' st-rej':'')+(isSlack&&!isMySlack?' st-taken':'')+(isDis?' st-dim':'');
 var ov='';
 if(isRej)ov='<div class="c-overlay"><div class="c-overlay-label rej">Odrzucony przez AI</div>'+(item.rejection_reason?'<div class="c-overlay-reason">'+esc(item.rejection_reason)+'</div>':'')+'</div>';
-var isMySlack=isSlack&&item.reserved_by&&item.reserved_by.indexOf('Artur')>=0;
 if(isSlack&&!isMySlack)ov='<div class="c-overlay"><div class="c-overlay-label taken">Zajęte przez innego redaktora</div>'+(item.reserved_by?'<div class="c-overlay-reason">'+esc(item.reserved_by)+'</div>':'')+'</div>';
-if(isMySlack)ov='';
 var isInactive=isDis||isRej||(isSlack&&!isMySlack);
 var hl=item.headline||item.cluster_label||item.summary||'';
 var sum=item.summary&&item.summary!==hl?item.summary:'';
 var hasImg=item.og_image;
+var srcBadge=sc>1?'<span class="c-src-count">'+sc+' źródeł</span>':'';
 return'<div class="'+cls+'">'+ov+
 (!isInactive?'<div class="c-dismiss" onclick="doAction('+item.id+',\'dismiss\')" title="Odrzuć">'+iX+'</div>':'')+
 '<div class="c-img">'+(hasImg?'<img src="'+esc(item.og_image)+'" loading="lazy" onerror="this.outerHTML=\'<div class=c-noimg>no img</div>\'">':'<div class="c-noimg">no img</div>')+tempChip(t)+'</div>'+
@@ -217,13 +218,44 @@ return'<div class="'+cls+'">'+ov+
 (isProd?'<div class="c-badge gr">'+iZap+' W produkcji</div>':'')+
 '<div class="c-hl"><a href="'+esc(item.url)+'" target="_blank" rel="noopener">'+esc(hl)+'</a></div>'+
 (sum?'<div class="c-sum">'+esc(sum)+'</div>':'')+
-'<div class="c-meta"><span>'+esc(dom(item.url))+'</span><span class="c-meta-dot"></span><span>'+fmtD(item.published_at)+'</span></div>'+
+'<div class="c-meta"><span>'+esc(dom(item.url))+'</span>'+srcBadge+'<span class="c-meta-dot"></span><span>'+fmtD(item.published_at)+'</span></div>'+
 (!isInactive?'<div class="c-acts"><div class="c-btn cy'+(isRes||isMySlack?' dis':'')+'" onclick="doAction('+item.id+',\'reserve\')">'+iBookmark+' Rezerwuję</div><div class="c-btn gr" onclick="doAction('+item.id+',\'produce\')">'+iRocket+' Produkcja'+(pc?'<span class="pc-pip">'+pc+'</span>':'')+'</div></div>':'')+
 '</div></div>'}
 
 function renderFree(){var el=document.getElementById('v-free');
 var items=S.items.filter(function(i){return['free','reserved','produced','dismissed','rejected','slack_taken'].indexOf(i.status)>=0});
 if(!items.length){setH(el,'<div class="empty">Brak newsów - kliknij "Pobierz nowe"</div>');return}
+
+// Cluster merge: group by cluster_id, pick best representative
+var clusters={},unclustered=[];
+items.forEach(function(i){
+  var cid=i.cluster_id;
+  if(!cid){unclustered.push(i);return}
+  if(!clusters[cid])clusters[cid]=[];
+  clusters[cid].push(i);
+});
+var merged=[];
+Object.values(clusters).forEach(function(group){
+  // Sort: active statuses first, then by temperature desc
+  var wt={'free':0,'reserved':0,'produced':0,'dismissed':3,'rejected':4,'slack_taken':2};
+  group.sort(function(a,b){return(wt[a.status]||0)-(wt[b.status]||0)||(b.temperature||0)-(a.temperature||0)});
+  var best=Object.assign({},group[0]);
+  best._sources=group.length;
+  best._allUrls=group.map(function(g){return g.url});
+  // If ANY item in cluster is slack_taken → whole cluster is taken
+  var takenItem=group.find(function(g){return g.status==='slack_taken'});
+  if(takenItem&&best.status==='free'){
+    best.status='slack_taken';
+    best.reserved_by=takenItem.reserved_by;
+  }
+  // If ANY item in cluster is reserved/produced by me → keep that status
+  var myItem=group.find(function(g){return g.status==='reserved'||g.status==='produced'});
+  if(myItem){best.status=myItem.status;best.id=myItem.id;best.produce_count=myItem.produce_count}
+  merged.push(best);
+});
+unclustered.forEach(function(i){i._sources=1;merged.push(i)});
+items=merged;
+
 var sortFn=S.sort==='temp'?function(a,b){var wa={'free':0,'reserved':0,'produced':0,'dismissed':3,'rejected':4,'slack_taken':4};return(wa[a.status]||0)-(wa[b.status]||0)||(b.temperature||0)-(a.temperature||0)}:function(a,b){var wa={'free':0,'reserved':0,'produced':0,'dismissed':3,'rejected':4,'slack_taken':4};return(wa[a.status]||0)-(wa[b.status]||0)||new Date(b.published_at)-new Date(a.published_at)};
 var days={};items.forEach(function(i){var k=dayK(i.published_at);if(!days[k])days[k]={label:dayLbl(i.published_at),age:dayAge(i.published_at),items:[]};days[k].items.push(i)});
 Object.values(days).forEach(function(d){d.items.sort(sortFn)});
