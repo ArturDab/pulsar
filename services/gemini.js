@@ -72,9 +72,14 @@ Odpowiedz TYLKO czystym JSON array:
 
     // Pass 2: temperature scoring - only relevant items (model_temperature)
     const relevantItems = pass1.filter(r => r.relevant !== false);
-    let tempScores = {}; // keyed by index in relevantItems
+    // tempByPos[i] = temperature for relevantItems[i]
+    const tempByPos = new Array(relevantItems.length).fill(5);
+
     if (relevantItems.length > 0) {
-      const tempCtx = JSON.stringify(relevantItems.map((r, idx) => ({ idx, headline: r.headline || r.title || '', summary: r.summary || '' })));
+      const lines = relevantItems.map((r, i) =>
+        `${i+1}. ${(r.headline || r.title || '').slice(0, 120)}`
+      ).join('\n');
+
       const prompt2 = `${temperatureInstructions}
 
 Oceń potencjał redakcyjny każdego artykułu w skali 1-10.
@@ -83,33 +88,45 @@ Oceń potencjał redakcyjny każdego artykułu w skali 1-10.
 4-5 = solidny news (normalny coverage)
 1-3 = niski potencjał
 
-Artykuły do oceny (${relevantItems.length} sztuk):
-${tempCtx}
+Artykuły (${relevantItems.length} sztuk, ZACHOWAJ tę samą kolejność w odpowiedzi):
+${lines}
 
-Odpowiedz TYLKO czystym JSON array, zachowując pole idx:
-[{"idx":0,"temperature":7},{"idx":1,"temperature":5}]`;
+Odpowiedz TYLKO czystym JSON array liczb całkowitych, po jednej temperaturze na artykuł w tej samej kolejności:
+[7,5,8,3,6]`;
 
       try {
-        const raw2 = await callAI(prompt2, { model: modelTemp, temperature: 0.1, maxTokens: 4096 });
-        const br2 = parseJsonFromAI(raw2);
-        if (Array.isArray(br2)) {
-          for (const r of br2) {
-            if (r.idx !== undefined) tempScores[r.idx] = Number(r.temperature) || 5;
-          }
+        const raw2 = await callAI(prompt2, { model: modelTemp, temperature: 0.1, maxTokens: 256 });
+        console.log(`[AI] pass2 raw: ${raw2.slice(0, 200)}`);
+        // Try to parse as plain array of numbers first
+        const clean = raw2.replace(/```[a-z]*\n?/g, '').trim();
+        let temps = null;
+        try { temps = JSON.parse(clean); } catch {}
+        if (!Array.isArray(temps)) {
+          // fallback: extract all numbers from string
+          const nums = clean.match(/\d+/g);
+          if (nums) temps = nums.map(Number);
+        }
+        if (Array.isArray(temps)) {
+          console.log(`[AI] pass2 parsed ${temps.length} temperatures for ${relevantItems.length} items`);
+          temps.forEach((t, i) => {
+            if (i < tempByPos.length) tempByPos[i] = Math.min(10, Math.max(1, Number(t) || 5));
+          });
+        } else {
+          console.error(`[AI] pass2 could not parse temperatures from: ${raw2.slice(0, 300)}`);
         }
       } catch (err) {
-        console.error(`[AI] ${mode} batch ${batchNum} pass2 (temperature) FAILED: ${err.message}`);
+        console.error(`[AI] ${mode} batch ${batchNum} pass2 FAILED: ${err.message}`);
       }
     }
 
-    // Build relevantItems index map for fast lookup
-    const relevantIdx = new Map(relevantItems.map((r, i) => [r.url, i]));
-
-    // Merge results
+    // Merge: match relevant items by position, rejected items keep temp=1
+    let relIdx = 0;
     for (const r of pass1) {
-      const idx = relevantIdx.get(r.url);
-      const temp = (idx !== undefined && tempScores[idx] !== undefined) ? tempScores[idx] : 5;
-      results.push({ ...r, temperature: temp });
+      if (r.relevant === false) {
+        results.push({ ...r, temperature: 1 });
+      } else {
+        results.push({ ...r, temperature: tempByPos[relIdx++] });
+      }
     }
 
     if (i + BATCH_SIZE < items.length) await new Promise(r => setTimeout(r, BATCH_DELAY));

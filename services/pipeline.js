@@ -174,28 +174,36 @@ async function refilterItems(days = 3) {
     let updated = 0;
     for (let i = 0; i < items.length; i += BATCH) {
       const batch = items.slice(i, i + BATCH);
-      const ctx = JSON.stringify(batch.map((r, idx) => ({ idx, headline: r.headline || '', summary: r.summary || '' })));
+      const lines = batch.map((r, j) => `${j+1}. ${(r.headline || '').slice(0, 120)}`).join('\n');
       const prompt = `${tempInstructions}
 
 Oceń potencjał redakcyjny każdego artykułu w skali 1-10.
 8-10 = gorący news, 6-7 = mocny, 4-5 = solidny, 1-3 = niski potencjał
 
-Artykuły (${batch.length} sztuk):
-${ctx}
+Artykuły (${batch.length} sztuk, ZACHOWAJ tę samą kolejność):
+${lines}
 
-Odpowiedz TYLKO czystym JSON array z polami idx i temperature:
-[{"idx":0,"temperature":7}]`;
+Odpowiedz TYLKO czystym JSON array liczb w tej samej kolejności:
+[7,5,8,3,6]`;
 
       try {
-        const raw = await callAI(prompt, { model, temperature: 0.1, maxTokens: 512 });
-        const results = parseJsonFromAI(raw);
-        if (Array.isArray(results)) {
-          for (const r of results) {
-            if (r.idx == null || !batch[r.idx]) continue;
-            const temp = Math.min(10, Math.max(1, Number(r.temperature) || 5));
-            await pool.query('UPDATE news_items SET temperature=$1 WHERE id=$2', [temp, batch[r.idx].id]);
+        const raw = await callAI(prompt, { model, temperature: 0.1, maxTokens: 256 });
+        console.log(`[Refilter] pass2 raw: ${raw.slice(0, 200)}`);
+        const clean = raw.replace(/```[a-z]*\n?/g, '').trim();
+        let temps = null;
+        try { temps = JSON.parse(clean); } catch {}
+        if (!Array.isArray(temps)) {
+          const nums = clean.match(/\d+/g);
+          if (nums) temps = nums.map(Number);
+        }
+        if (Array.isArray(temps)) {
+          for (let j = 0; j < batch.length && j < temps.length; j++) {
+            const temp = Math.min(10, Math.max(1, Number(temps[j]) || 5));
+            await pool.query('UPDATE news_items SET temperature=$1 WHERE id=$2', [temp, batch[j].id]);
             updated++;
           }
+        } else {
+          console.error(`[Refilter] Could not parse temperatures: ${raw.slice(0, 200)}`);
         }
       } catch (err) {
         console.error(`[Refilter] Batch ${Math.floor(i/BATCH)+1} failed: ${err.message}`);
