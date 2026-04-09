@@ -315,12 +315,19 @@ router.post('/felietony/generate', async (req, res) => {
     const instructions = settingsRows[0]?.value || '';
     const model = await getModelForTask('felieton');
 
+    // Pass existing titles so AI avoids repetitions
+    const { rows: existing } = await pool.query('SELECT title FROM felieton_ideas ORDER BY created_at DESC LIMIT 60');
+    const existingCtx = existing.length
+      ? `\nISNIEJĄCE TEMATY (nie powtarzaj tych ani podobnych):\n${existing.map((r, i) => `${i + 1}. ${r.title}`).join('\n')}`
+      : '';
+
     const currentCtx = current_events
       ? `\nWAŻNE: Propozycje MUSZĄ nawiązywać do bieżących wydarzeń w branży gier. Najpierw przeszukaj internet, sprawdź co się dzieje w gamingu w ostatnich dniach (premiery, kontrowersje, ogłoszenia, trendy), a potem zaproponuj felietony powiązane z aktualnymi tematami. Każdy brief powinien odwoływać się do konkretnego, świeżego wydarzenia.`
       : '';
 
     const prompt = `${instructions}
 ${currentCtx}
+${existingCtx}
 ${direction ? '\nKierunek tematyczny wskazany przez redaktora: ' + direction : '\nRedaktor nie podał kierunku - zaproponuj kreatywnie różnorodne tematy.'}
 
 Wygeneruj DOKŁADNIE 10 propozycji felietonów. Dla każdej podaj:
@@ -392,8 +399,7 @@ router.post('/felietony/:id/produce', async (req, res) => {
       body: JSON.stringify({
         type: 'felieton',
         title: item.title,
-        brief: item.brief,
-        instructions: instructions
+        brief: item.brief
       })
     });
     if (!hookRes.ok) {

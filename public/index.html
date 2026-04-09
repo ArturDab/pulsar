@@ -111,15 +111,15 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .cf-toggle{position:relative;width:36px;height:20px;flex-shrink:0}.cf-toggle input{opacity:0;width:0;height:0}.cf-toggle-sl{position:absolute;cursor:pointer;inset:0;background:var(--dimmer);border-radius:10px;transition:.2s}.cf-toggle-sl::before{content:'';position:absolute;width:16px;height:16px;left:2px;bottom:2px;background:#fff;border-radius:50%;transition:.2s}.cf-toggle input:checked+.cf-toggle-sl{background:var(--neon)}.cf-toggle input:checked+.cf-toggle-sl::before{transform:translateX(16px)}
 .empty{text-align:center;padding:48px 24px;color:var(--dim);font-size:14px}
 .err{display:none;align-items:center;gap:8px;padding:12px 16px;margin-bottom:14px;border:1px solid var(--red-dim);border-radius:10px;background:rgba(255,68,68,.06);color:var(--red);font-size:13px}.err.show{display:flex}
-.fel-list{column-count:2;column-gap:20px}
-@media(max-width:900px){.fel-list{column-count:1}}
+.fel-list{display:flex;flex-direction:column;gap:0}
+@media(min-width:900px){.fel-list{columns:unset}}
 .fel-item{break-inside:avoid;display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);align-items:flex-start}
 .fel-item:last-child{border-bottom:none}
 .fel-item.sent{opacity:.45}
 .fel-body{flex:1;min-width:0}
 .fel-title-input{font-size:15px;font-weight:700;width:100%;background:transparent;border:none;color:var(--text);outline:none;padding:0;font-family:var(--body);transition:color .15s}
 .fel-title-input:focus{color:var(--neon)}
-.fel-brief-input{font-size:13px;width:100%;background:transparent;border:none;color:var(--text2);outline:none;padding:2px 0 0;font-family:var(--body);line-height:1.5;resize:none;overflow:hidden;min-height:20px}
+.fel-brief-input{font-size:13px;width:100%;background:transparent;border:none;color:var(--text2);outline:none;padding:2px 0 0;font-family:var(--body);line-height:1.6;resize:none;min-height:44px}
 .fel-brief-input:focus{color:var(--text)}
 .fel-row-meta{font-size:11px;color:var(--dim);margin-top:4px;font-weight:500}
 .fel-row-acts{display:flex;gap:6px;flex-shrink:0;align-items:flex-start;padding-top:2px}
@@ -405,7 +405,7 @@ var isSent=f.status==='sent',pc=f.produce_count||0;
 return'<div class="fel-item'+(isSent?' sent':'')+'">'+
 '<div class="fel-body">'+
 '<input class="fel-title-input" value="'+esc(f.title).replace(/"/g,'&quot;')+'" onchange="updateFel('+f.id+',this.value,null)">'+
-'<textarea class="fel-brief-input" onchange="updateFel('+f.id+',null,this.value)" oninput="this.style.height=\'auto\';this.style.height=this.scrollHeight+\'px\'" rows="1">'+esc(f.brief)+'</textarea>'+
+'<textarea class="fel-brief-input" onchange="updateFel('+f.id+',null,this.value)" rows="3">'+esc(f.brief)+'</textarea>'+
 (pc?'<div class="fel-row-meta">wysłano '+pc+'x</div>':'')+
 '</div>'+
 '<div class="fel-row-acts">'+
