@@ -7,6 +7,16 @@ const { scrapeOgImages } = require('./og');
 
 let lastRun = null, isRunning = false, isRefiltering = false;
 
+// In-memory event log (last 100 events)
+const eventLog = [];
+function logEvent(type, msg, detail = null) {
+  const e = { ts: new Date().toISOString(), type, msg, detail };
+  eventLog.unshift(e);
+  if (eventLog.length > 100) eventLog.pop();
+  console.log(`[${type}] ${msg}${detail ? ' | ' + detail : ''}`);
+}
+function getLog() { return eventLog; }
+
 async function getInstructions() {
   const { rows } = await pool.query("SELECT key, value FROM settings WHERE key IN ('router_instructions','temperature_instructions','training_good','training_bad')");
   const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
@@ -59,13 +69,20 @@ async function runPipeline() {
   try {
     const { rows: [run] } = await pool.query('INSERT INTO pipeline_runs DEFAULT VALUES RETURNING id');
     runId = run.id;
+    logEvent('pipeline', 'Start pobierania feedów');
 
     const { rows: feeds } = await pool.query('SELECT url, name FROM feeds WHERE active = true');
-    if (!feeds.length) { await closeRun(runId, 0, 0); return; }
+    if (!feeds.length) { await closeRun(runId, 0, 0); logEvent('pipeline', 'Brak aktywnych feedów'); return; }
 
     let allItems = [];
     for (const feed of feeds) {
-      try { allItems.push(...await fetchFeed(feed.url)); } catch (e) { console.error(`[Pipeline] Feed error: ${e.message}`); }
+      try {
+        const items = await fetchFeed(feed.url);
+        allItems.push(...items);
+        logEvent('feed', `${feed.name}: ${items.length} artykułów`);
+      } catch (e) {
+        logEvent('error', `Feed błąd: ${feed.name}`, e.message);
+      }
     }
     console.log(`[Pipeline] Fetched ${allItems.length} items from ${feeds.length} feeds`);
 
@@ -138,11 +155,11 @@ async function runPipeline() {
 
     if (unmatched > 0) console.warn(`[Pipeline] ${unmatched} URL mismatches`);
     await closeRun(runId, newItems.length, saved);
-    console.log(`[Pipeline] Done: ${saved} saved, ${rejected} rejected, ${unmatched} unmatched`);
+    logEvent('pipeline', `Zakończono: ${saved} nowych, ${rejected} odrzuconych`);
     scrapeOgImages().catch(e => console.error('[OG]', e.message));
 
   } catch (err) {
-    console.error('[Pipeline] Fatal:', err.message);
+    logEvent('error', 'Pipeline błąd krytyczny', err.message);
     await closeRun(runId, 0, 0, err.message);
   } finally { lastRun = new Date(); isRunning = false; }
 }
@@ -164,6 +181,7 @@ async function refilterItems(days = 3) {
     );
     if (!items.length) { console.log('[Refilter] No items to rescore'); return; }
     console.log('[Refilter] Rescoring ' + items.length + ' items');
+    logEvent('refilter', `Przeliczam temperaturę: ${items.length} newsów`);
 
     const { rows: sr } = await pool.query("SELECT value FROM settings WHERE key='temperature_instructions'");
     const tempInstructions = sr[0]?.value || `Oceń temperaturę (potencjał redakcyjny) każdego artykułu:
@@ -193,17 +211,18 @@ GTA, Elden Ring, Nintendo, PlayStation, Xbox, Minecraft, Fortnite = wyżej. Niez
             updated++;
           }
         } else {
-          console.error('[Refilter] Got ' + nums.length + ' numbers for ' + batch.length + ' items');
+          logEvent('error', `Refilter batch ${Math.floor(i / BATCH) + 1}: zła odpowiedź AI`, `got ${nums.length}/${batch.length} numbers`);
         }
       } catch (err) {
-        console.error('[Refilter] Batch failed: ' + err.message);
+        logEvent('error', `Refilter batch ${Math.floor(i / BATCH) + 1} błąd`, err.message);
       }
       if (i + BATCH < items.length) await new Promise(r => setTimeout(r, 500));
     }
+    logEvent('refilter', `Zakończono przeliczanie: ${updated}/${items.length} newsów`);
     console.log('[Refilter] Done: ' + updated + '/' + items.length);
   } catch (err) { console.error('[Refilter]', err.message); }
   finally { isRefiltering = false; }
 }
 
 function getStatus() { return { lastRun, isRunning, isRefiltering }; }
-module.exports = { runPipeline, refilterItems, getStatus };
+module.exports = { runPipeline, refilterItems, getStatus, getLog };

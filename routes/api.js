@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const { postToSlack, getRecentMessages, deleteMessageByUrl } = require('../services/slack');
-const { runPipeline, refilterItems, getStatus } = require('../services/pipeline');
+const { runPipeline, refilterItems, getStatus, getLog } = require('../services/pipeline');
 const { scrapeOgImages } = require('../services/og');
 const { fetchReviewFeed } = require('../services/reviews-feed');
 
@@ -74,13 +74,18 @@ router.post('/news/:id/produce', async (req, res) => {
 
     const { rows: sr } = await pool.query("SELECT value FROM settings WHERE key='news_webhook_url'");
     const makeUrl = sr[0]?.value || process.env.MAKE_WEBHOOK_URL;
-    if (!makeUrl) return res.status(400).json({ error: 'Brak URL webhooka. Dodaj go w Ustawieniach → Newsy.' });
+    if (!makeUrl) return res.status(400).json({ error: 'Brak URL webhooka. Dodaj go w Ustawieniach → Konfiguracja.' });
 
     const r = await fetch(makeUrl, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: item.url })
     });
-    if (!r.ok) { const txt = await r.text().catch(() => ''); return res.status(502).json({ error: `Make.com webhook błąd ${r.status}: ${txt}` }); }
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      getLog().unshift({ ts: new Date().toISOString(), type: 'error', msg: `Webhook news błąd ${r.status}`, detail: item.headline || item.url });
+      return res.status(502).json({ error: `Make.com webhook błąd ${r.status}: ${txt}` });
+    }
+    getLog().unshift({ ts: new Date().toISOString(), type: 'webhook', msg: `News wysłany do Make.com`, detail: item.headline || item.url });
 
     const { rows: updated } = await pool.query(
       "UPDATE news_items SET status='produced', produce_count = COALESCE(produce_count, 0) + 1 WHERE id=$1 RETURNING produce_count",
@@ -424,5 +429,8 @@ router.post('/felietony/:id/produce', async (req, res) => {
     res.json(updated[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// --- LOGS ---
+router.get('/logs', (req, res) => { res.json(getLog()); });
 
 module.exports = router;
