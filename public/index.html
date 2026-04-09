@@ -332,7 +332,7 @@ function sel(id){
 }
 function whBlock(label,hint,inId,key){
   var btnId=inId+'Btn',stId=inId+'St';
-  var onclick='saveWebhook('+JSON.stringify(key)+','+JSON.stringify(inId)+','+JSON.stringify(btnId)+','+JSON.stringify(stId)+')';
+  var onclick="saveWebhook('"+key+"','"+inId+"','"+btnId+"','"+stId+"')";
   return ['<div class="st-block">',
     '<div class="st-lbl">',label,'</div>',
     '<div class="st-hint">',hint,'</div>',
@@ -353,7 +353,7 @@ var orKeyBlock=['<div class="st-block">',
 var tabs=['newsy','recenzje','felietony'];
 var tabsHtml='<div class="toolbar-tabs" style="margin-bottom:0">'+tabs.map(function(t){
   var cls='ttab'+(S.settingsTab===t?' on':'');
-  return '<button class="'+cls+'" onclick="S.settingsTab='+JSON.stringify(t)+';renderSettings()">'+t.charAt(0).toUpperCase()+t.slice(1)+'</button>';
+  return '<button class="'+cls+'" onclick="S.settingsTab=\''+t+'\';renderSettings()">'+t.charAt(0).toUpperCase()+t.slice(1)+'</button>';
 }).join('')+'</div>';
 var bodyHtml='';
 if(S.settingsTab==='newsy'){
