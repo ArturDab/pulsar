@@ -1,7 +1,8 @@
 const { pool } = require('../db');
 const { fetchFeed } = require('./rss');
 const { getSlackUrlMap } = require('./slack');
-const { filterAndCluster, reclusterAndRescore } = require('./gemini');
+const { filterAndCluster, getModelForTask } = require('./gemini');
+const { callAI, parseJsonFromAI } = require('./ai');
 const { scrapeOgImages } = require('./og');
 
 let lastRun = null, isRunning = false, isRefiltering = false;
@@ -160,23 +161,46 @@ async function refilterItems(days = 3) {
   isRefiltering = true;
   try {
     const { rows: items } = await pool.query(
-      "SELECT * FROM news_items WHERE status = 'free' AND published_at > NOW() - INTERVAL '"+days+" days' ORDER BY published_at DESC"
+      "SELECT id, url, headline, summary FROM news_items WHERE status='free' AND published_at > NOW() - INTERVAL '"+days+" days' ORDER BY published_at DESC"
     );
-    if (!items.length) { isRefiltering = false; return; }
-    console.log(`[Refilter] Rescoring ${items.length} items from last ${days} days`);
-    const { rows: clusters } = await pool.query("SELECT DISTINCT cluster_id, cluster_label FROM news_items WHERE cluster_id IS NOT NULL AND cluster_id != 'inne-tematy'");
-    const instr = await getInstructions();
-    const processed = await reclusterAndRescore(items, clusters, instr.router, instr.temperature);
-    const urlMap = buildUrlMap(items);
+    if (!items.length) { console.log('[Refilter] No items to rescore'); return; }
+    console.log(`[Refilter] Rescoring temperature for ${items.length} items`);
+
+    const { rows: sr } = await pool.query("SELECT value FROM settings WHERE key='temperature_instructions'");
+    const tempInstructions = sr[0]?.value || '';
+    const model = await getModelForTask('temperature');
+
+    const BATCH = 10;
     let updated = 0;
-    for (const item of processed) {
-      const orig = findOriginal(urlMap, item.url);
-      if (!orig) continue;
-      await pool.query(`UPDATE news_items SET headline=COALESCE(NULLIF($1,''),headline), summary=COALESCE(NULLIF($2,''),summary),
-        cluster_id=$3, cluster_label=$4, temperature=$5 WHERE id=$6`,
-        [item.headline || '', item.summary || '', item.cluster_id || 'inne-tematy', item.cluster_label || 'Inne tematy',
-         Math.min(10, Math.max(1, item.temperature || 5)), orig.id]).catch(() => {});
-      updated++;
+    for (let i = 0; i < items.length; i += BATCH) {
+      const batch = items.slice(i, i + BATCH);
+      const ctx = JSON.stringify(batch.map((r, idx) => ({ idx, headline: r.headline || '', summary: r.summary || '' })));
+      const prompt = `${tempInstructions}
+
+Oceń potencjał redakcyjny każdego artykułu w skali 1-10.
+8-10 = gorący news, 6-7 = mocny, 4-5 = solidny, 1-3 = niski potencjał
+
+Artykuły (${batch.length} sztuk):
+${ctx}
+
+Odpowiedz TYLKO czystym JSON array z polami idx i temperature:
+[{"idx":0,"temperature":7}]`;
+
+      try {
+        const raw = await callAI(prompt, { model, temperature: 0.1, maxTokens: 512 });
+        const results = parseJsonFromAI(raw);
+        if (Array.isArray(results)) {
+          for (const r of results) {
+            if (r.idx == null || !batch[r.idx]) continue;
+            const temp = Math.min(10, Math.max(1, Number(r.temperature) || 5));
+            await pool.query('UPDATE news_items SET temperature=$1 WHERE id=$2', [temp, batch[r.idx].id]);
+            updated++;
+          }
+        }
+      } catch (err) {
+        console.error(`[Refilter] Batch ${Math.floor(i/BATCH)+1} failed: ${err.message}`);
+      }
+      if (i + BATCH < items.length) await new Promise(r => setTimeout(r, 800));
     }
     console.log(`[Refilter] Done: ${updated}/${items.length}`);
   } catch (err) { console.error('[Refilter]', err.message); }
