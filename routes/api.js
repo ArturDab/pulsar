@@ -270,7 +270,7 @@ router.post('/reviews/:id/produce', async (req, res) => {
     if (!item) return res.status(404).json({ error: 'Not found' });
 
     const { rows: sr } = await pool.query("SELECT value FROM settings WHERE key='review_webhook_url'");
-    const makeUrl = sr[0]?.value || process.env.MAKE_REVIEW_WEBHOOK_URL || process.env.MAKE_WEBHOOK_URL;
+    const makeUrl = sr[0]?.value || process.env.MAKE_REVIEW_WEBHOOK_URL;
     if (!makeUrl) return res.status(400).json({ error: 'Brak URL webhooka. Dodaj go w Ustawieniach → Recenzje.' });
 
     if (item.links && item.links.length) {
@@ -390,7 +390,7 @@ router.post('/felietony/:id/produce', async (req, res) => {
     const smap = {};
     settingsRows.forEach(r => { smap[r.key] = r.value; });
     const instructions = smap['felieton_instructions'] || '';
-    const makeUrl = smap['felieton_webhook_url'] || process.env.MAKE_FELIETON_WEBHOOK_URL || process.env.MAKE_WEBHOOK_URL;
+    const makeUrl = smap['felieton_webhook_url'] || process.env.MAKE_FELIETON_WEBHOOK_URL;
 
     if (!makeUrl) return res.status(400).json({ error: 'Brak URL webhooka Make.com. Dodaj go w Ustawieniach → Felietony.' });
 
