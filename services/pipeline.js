@@ -140,7 +140,6 @@ async function runPipeline() {
     await closeRun(runId, newItems.length, saved);
     console.log(`[Pipeline] Done: ${saved} saved, ${rejected} rejected, ${unmatched} unmatched`);
     scrapeOgImages().catch(e => console.error('[OG]', e.message));
-    if (saved > 0) refilterItems(3).catch(e => console.error('[AutoRefilter]', e.message));
 
   } catch (err) {
     console.error('[Pipeline] Fatal:', err.message);
@@ -157,14 +156,14 @@ async function closeRun(id, fetched, saved, error = null) {
 }
 
 async function refilterItems(days = 3) {
-  if (isRefiltering) return;
+  if (isRefiltering) { console.log('[Refilter] Already running, skipping'); return; }
   isRefiltering = true;
   try {
     const { rows: items } = await pool.query(
-      "SELECT id, url, headline, summary FROM news_items WHERE status='free' AND published_at > NOW() - INTERVAL '"+days+" days' ORDER BY published_at DESC"
+      "SELECT id, headline, summary FROM news_items WHERE status='free' AND published_at > NOW() - INTERVAL '" + days + " days' ORDER BY published_at DESC"
     );
     if (!items.length) { console.log('[Refilter] No items to rescore'); return; }
-    console.log(`[Refilter] Rescoring temperature for ${items.length} items`);
+    console.log('[Refilter] Rescoring ' + items.length + ' items');
 
     const { rows: sr } = await pool.query("SELECT value FROM settings WHERE key='temperature_instructions'");
     const tempInstructions = sr[0]?.value || `Oceń temperaturę (potencjał redakcyjny) każdego artykułu:
@@ -176,47 +175,32 @@ async function refilterItems(days = 3) {
 GTA, Elden Ring, Nintendo, PlayStation, Xbox, Minecraft, Fortnite = wyżej. Nieznane indie = niżej.`;
     const model = await getModelForTask('news');
 
-    const BATCH = 10;
+    const BATCH = 5;
     let updated = 0;
     for (let i = 0; i < items.length; i += BATCH) {
       const batch = items.slice(i, i + BATCH);
-      const lines = batch.map((r, j) => `${j+1}. ${(r.headline || '').slice(0, 120)}`).join('\n');
-      const prompt = `${tempInstructions}
-
-Oceń potencjał redakcyjny każdego artykułu w skali 1-10.
-8-10 = gorący news, 6-7 = mocny, 4-5 = solidny, 1-3 = niski potencjał
-
-Artykuły (${batch.length} sztuk, ZACHOWAJ tę samą kolejność):
-${lines}
-
-Odpowiedz TYLKO czystym JSON array liczb w tej samej kolejności:
-[7,5,8,3,6]`;
+      const lines = batch.map((r, j) => (j + 1) + '. ' + (r.headline || r.summary || '').slice(0, 120)).join('\n');
+      const prompt = tempInstructions + '\n\nOceń każdy artykuł. Odpowiedź to dokładnie ' + batch.length + ' liczb całkowitych oddzielonych przecinkami:\n\n' + lines + '\n\nOdpowiedź:';
 
       try {
-        const raw = await callAI(prompt, { model, temperature: 0.1, maxTokens: 256 });
-        console.log(`[Refilter] pass2 raw: ${raw.slice(0, 200)}`);
-        const clean = raw.replace(/```[a-z]*\n?/g, '').trim();
-        let temps = null;
-        try { temps = JSON.parse(clean); } catch {}
-        if (!Array.isArray(temps)) {
-          const nums = clean.match(/\d+/g);
-          if (nums) temps = nums.map(Number);
-        }
-        if (Array.isArray(temps)) {
-          for (let j = 0; j < batch.length && j < temps.length; j++) {
-            const temp = Math.min(10, Math.max(1, Number(temps[j]) || 5));
+        const raw = await callAI(prompt, { model, temperature: 0.1, maxTokens: 32 });
+        console.log('[Refilter] batch ' + (Math.floor(i / BATCH) + 1) + ' raw: "' + raw.trim() + '"');
+        const nums = (raw.match(/\b([1-9]|10)\b/g) || []).map(Number);
+        if (nums.length >= batch.length) {
+          for (let j = 0; j < batch.length; j++) {
+            const temp = Math.min(10, Math.max(1, nums[j]));
             await pool.query('UPDATE news_items SET temperature=$1 WHERE id=$2', [temp, batch[j].id]);
             updated++;
           }
         } else {
-          console.error(`[Refilter] Could not parse temperatures: ${raw.slice(0, 200)}`);
+          console.error('[Refilter] Got ' + nums.length + ' numbers for ' + batch.length + ' items');
         }
       } catch (err) {
-        console.error(`[Refilter] Batch ${Math.floor(i/BATCH)+1} failed: ${err.message}`);
+        console.error('[Refilter] Batch failed: ' + err.message);
       }
-      if (i + BATCH < items.length) await new Promise(r => setTimeout(r, 800));
+      if (i + BATCH < items.length) await new Promise(r => setTimeout(r, 500));
     }
-    console.log(`[Refilter] Done: ${updated}/${items.length}`);
+    console.log('[Refilter] Done: ' + updated + '/' + items.length);
   } catch (err) { console.error('[Refilter]', err.message); }
   finally { isRefiltering = false; }
 }
