@@ -248,7 +248,33 @@ try{
 async function load(){try{var[items,tk,fd,st,pi]=await Promise.all([fetch('/api/news').then(function(r){return r.json()}),fetch('/api/news/taken').then(function(r){return r.json()}),fetch('/api/feeds').then(function(r){return r.json()}),fetch('/api/stats').then(function(r){return r.json()}),fetch('/api/pipeline/status').then(function(r){return r.json()})]);S.items=items;S.taken=tk;S.feeds=fd;S.stats=st;S.pipeline=pi;render()}catch(e){console.error(e)}}
 function render(){document.getElementById('mFree').textContent=S.stats.free||0;document.getElementById('mRes').textContent=S.stats.reserved||0;document.getElementById('mProd').textContent=S.stats.produced||0;document.getElementById('mFeeds').textContent=S.feeds.filter(function(f){return f.active}).length;var lr=S.pipeline.lastRun,ts=lr?(lr.finished_at||lr.started_at):null;document.getElementById('sRun').textContent='run: '+ago(ts);if(S.tab==='free')renderFree();if(S.tab==='taken')renderTaken();if(S.tab==='feeds')renderFeeds()}
 
-async function doAction(id,action){try{var r=await fetch('/api/news/'+id+'/'+action,{method:'POST'});var d=await r.json();if(!r.ok)throw new Error(d.error);await load()}catch(e){showErr(e.message)}}
+var iCheck='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+async function doAction(id,action,btnEl){
+  try{
+    if(action==='produce'&&btnEl){
+      btnEl.disabled=true;btnEl.style.opacity='.6';
+    }
+    var r=await fetch('/api/news/'+id+'/'+action,{method:'POST'});
+    var d=await r.json();
+    if(!r.ok)throw new Error(d.error);
+    if(action==='produce'&&btnEl){
+      btnEl.innerHTML=iCheck+' Wysłano';
+      btnEl.style.opacity='1';
+      btnEl.style.borderColor='var(--neon-br)';btnEl.style.color='var(--neon)';
+      setTimeout(function(){load()},1200);
+    }else{
+      await load();
+    }
+  }catch(e){
+    if(action==='produce'&&btnEl){
+      btnEl.innerHTML=iX+' Błąd';
+      btnEl.style.borderColor='var(--red-dim)';btnEl.style.color='var(--red)';
+      btnEl.style.opacity='1';
+      setTimeout(function(){btnEl.disabled=false;btnEl.innerHTML=iRocket+' Produkcja';btnEl.style.borderColor='';btnEl.style.color='var(--neon)'},3000);
+    }
+    showErr(e.message);
+  }
+}
 async function doSend(){var i=document.getElementById('sendUrl'),u=i.value.trim();if(!u)return;try{var r=await fetch('/api/manual-send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});var d=await r.json();if(!r.ok)throw new Error(d.error);i.value=''}catch(e){showErr(e.message)}}
 var _pt=null;async function doSlackSync(){var b=document.getElementById('syncBtn');b.disabled=true;b.textContent='...';try{var r=await fetch('/api/slack/sync',{method:'POST'});var d=await r.json();b.textContent=d.synced?d.synced+' zajętych':'OK';await load();setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}catch(e){b.textContent='Błąd';setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}}
 async function doClear(){if(!confirm('Usunąć wszystkie wolne newsy? Zarezerwowane i w produkcji zostaną.'))return;var b=document.getElementById('clearBtn');b.disabled=true;b.textContent='...';var r=await fetch('/api/news/clear',{method:'POST'});var d=await r.json();b.textContent='Wyczyść';b.disabled=false;if(d.ok){await load();doRun()}}
@@ -276,7 +302,7 @@ return'<div class="'+cls+'">'+ov+
 '<div class="c-hl"><a href="'+esc(item.url)+'" target="_blank" rel="noopener">'+esc(hl)+'</a></div>'+
 (sum?'<div class="c-sum">'+esc(sum)+'</div>':'')+
 '<div class="c-meta"><span>'+esc(dom(item.url))+'</span>'+srcBadge+'<span class="c-meta-dot"></span><span>'+fmtD(item.published_at)+'</span></div>'+
-(!isInactive?'<div class="c-acts">'+(isRes||isMySlack?'<div class="c-btn cy" style="border-color:var(--red-dim);color:var(--red);flex:0 0 auto;padding:10px 16px" onclick="event.stopPropagation();doAction('+item.id+',\'unreserve\')" title="Cofnij rezerwację">'+iX+'</div>':'<div class="c-btn cy" onclick="doAction('+item.id+',\'reserve\')">'+iBookmark+' Rezerwuję</div>')+'<div class="c-btn gr" onclick="doAction('+item.id+',\'produce\')">'+iRocket+' Produkcja'+(pc?'<span class="pc-pip">'+pc+'</span>':'')+'</div></div>':'')+
+(!isInactive?'<div class="c-acts">'+(isRes||isMySlack?'<div class="c-btn cy" style="border-color:var(--red-dim);color:var(--red);flex:0 0 auto;padding:10px 16px" onclick="event.stopPropagation();doAction('+item.id+',\'unreserve\')" title="Cofnij rezerwację">'+iX+'</div>':'<div class="c-btn cy" onclick="doAction('+item.id+',\'reserve\')">'+iBookmark+' Rezerwuję</div>')+'<div class="c-btn gr" onclick="doAction('+item.id+',\'produce\',this)">'+iRocket+' Produkcja'+(pc?'<span class="pc-pip">'+pc+'</span>':'')+'</div></div>':'')+
 '</div></div>'}
 
 function renderFree(){var el=document.getElementById('v-free');
