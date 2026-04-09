@@ -132,6 +132,16 @@ router.post('/manual-send', async (req, res) => {
   } catch (e) { res.status(502).json({ error: e.message }); }
 });
 
+// Clear free news (keeps reserved/produced/slack_taken)
+router.post('/news/clear', async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(
+      "DELETE FROM news_items WHERE status IN ('free','dismissed','rejected')"
+    );
+    res.json({ ok: true, deleted: rowCount });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // --- FEEDS ---
 router.get('/feeds', async (req, res) => {
   try { res.json((await pool.query('SELECT * FROM feeds ORDER BY created_at')).rows); }
