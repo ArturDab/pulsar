@@ -139,6 +139,7 @@ async function runPipeline() {
     await closeRun(runId, newItems.length, saved);
     console.log(`[Pipeline] Done: ${saved} saved, ${rejected} rejected, ${unmatched} unmatched`);
     scrapeOgImages().catch(e => console.error('[OG]', e.message));
+    if (saved > 0) refilterItems(3).catch(e => console.error('[AutoRefilter]', e.message));
 
   } catch (err) {
     console.error('[Pipeline] Fatal:', err.message);
@@ -154,12 +155,15 @@ async function closeRun(id, fetched, saved, error = null) {
   } catch {}
 }
 
-async function refilterItems() {
+async function refilterItems(days = 3) {
   if (isRefiltering) return;
   isRefiltering = true;
   try {
-    const { rows: items } = await pool.query("SELECT * FROM news_items WHERE status = 'free' ORDER BY published_at DESC");
+    const { rows: items } = await pool.query(
+      "SELECT * FROM news_items WHERE status = 'free' AND published_at > NOW() - INTERVAL '"+days+" days' ORDER BY published_at DESC"
+    );
     if (!items.length) { isRefiltering = false; return; }
+    console.log(`[Refilter] Rescoring ${items.length} items from last ${days} days`);
     const { rows: clusters } = await pool.query("SELECT DISTINCT cluster_id, cluster_label FROM news_items WHERE cluster_id IS NOT NULL AND cluster_id != 'inne-tematy'");
     const instr = await getInstructions();
     const processed = await reclusterAndRescore(items, clusters, instr.router, instr.temperature);
