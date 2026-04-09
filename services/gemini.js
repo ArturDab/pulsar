@@ -29,9 +29,17 @@ async function processBatches(items, clusters, routerInstructions, temperatureIn
     const itemsCtx = JSON.stringify(batch.map(item => ({ url: item.url, title: item.title || '' })));
     const isFilter = mode === 'filter';
 
+    const tempScale = temperatureInstructions || `Oceń temperaturę (potencjał redakcyjny) każdego istotnego artykułu:
+10 = premiera AAA, globalny skandal, wydarzenie które zdominuje gaming media
+8-9 = ważna zapowiedź, duży patch popularnej gry, poważny kryzys studia
+6-7 = solidny news: mniejsza premiera, ciekawa aktualizacja, wartościowy industry news
+4-5 = przeciętny news: niszowy tytuł, drobna aktualizacja, branżowa ciekawostka
+1-3 = słaby potencjał: bardzo niszowy temat, marginalny developer, nieistotna informacja
+GTA, Elden Ring, Nintendo, PlayStation, Xbox, Minecraft, Fortnite = wyżej. Nieznane indie = niżej.`;
+
     const prompt = `${routerInstructions}
 
-${temperatureInstructions}
+${tempScale}
 
 Istniejące klastry (reużyj cluster_id jeśli pasuje):
 ${clusterCtx}

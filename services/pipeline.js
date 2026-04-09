@@ -167,8 +167,14 @@ async function refilterItems(days = 3) {
     console.log(`[Refilter] Rescoring temperature for ${items.length} items`);
 
     const { rows: sr } = await pool.query("SELECT value FROM settings WHERE key='temperature_instructions'");
-    const tempInstructions = sr[0]?.value || '';
-    const model = await getModelForTask('temperature');
+    const tempInstructions = sr[0]?.value || `Oceń temperaturę (potencjał redakcyjny) każdego artykułu:
+10 = premiera AAA, globalny skandal, wydarzenie które zdominuje gaming media
+8-9 = ważna zapowiedź, duży patch popularnej gry, poważny kryzys studia
+6-7 = solidny news: mniejsza premiera, ciekawa aktualizacja, wartościowy industry news
+4-5 = przeciętny news: niszowy tytuł, drobna aktualizacja, branżowa ciekawostka
+1-3 = słaby potencjał: bardzo niszowy temat, marginalny developer, nieistotna informacja
+GTA, Elden Ring, Nintendo, PlayStation, Xbox, Minecraft, Fortnite = wyżej. Nieznane indie = niżej.`;
+    const model = await getModelForTask('news');
 
     const BATCH = 10;
     let updated = 0;
