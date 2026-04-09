@@ -72,9 +72,9 @@ Odpowiedz TYLKO czystym JSON array:
 
     // Pass 2: temperature scoring - only relevant items (model_temperature)
     const relevantItems = pass1.filter(r => r.relevant !== false);
-    let tempMap = {};
+    let tempScores = {}; // keyed by index in relevantItems
     if (relevantItems.length > 0) {
-      const tempCtx = JSON.stringify(relevantItems.map(r => ({ url: r.url, headline: r.headline || '', summary: r.summary || '' })));
+      const tempCtx = JSON.stringify(relevantItems.map((r, idx) => ({ idx, headline: r.headline || r.title || '', summary: r.summary || '' })));
       const prompt2 = `${temperatureInstructions}
 
 Oceń potencjał redakcyjny każdego artykułu w skali 1-10.
@@ -86,23 +86,30 @@ Oceń potencjał redakcyjny każdego artykułu w skali 1-10.
 Artykuły do oceny (${relevantItems.length} sztuk):
 ${tempCtx}
 
-Odpowiedz TYLKO czystym JSON array:
-[{"url":"...","temperature":7}]`;
+Odpowiedz TYLKO czystym JSON array, zachowując pole idx:
+[{"idx":0,"temperature":7},{"idx":1,"temperature":5}]`;
 
       try {
-        const raw2 = await callAI(prompt2, { model: modelTemp, temperature: 0.1, maxTokens: 2048 });
+        const raw2 = await callAI(prompt2, { model: modelTemp, temperature: 0.1, maxTokens: 4096 });
         const br2 = parseJsonFromAI(raw2);
         if (Array.isArray(br2)) {
-          for (const r of br2) tempMap[r.url] = r.temperature;
+          for (const r of br2) {
+            if (r.idx !== undefined) tempScores[r.idx] = Number(r.temperature) || 5;
+          }
         }
       } catch (err) {
         console.error(`[AI] ${mode} batch ${batchNum} pass2 (temperature) FAILED: ${err.message}`);
       }
     }
 
+    // Build relevantItems index map for fast lookup
+    const relevantIdx = new Map(relevantItems.map((r, i) => [r.url, i]));
+
     // Merge results
     for (const r of pass1) {
-      results.push({ ...r, temperature: tempMap[r.url] ?? 5 });
+      const idx = relevantIdx.get(r.url);
+      const temp = (idx !== undefined && tempScores[idx] !== undefined) ? tempScores[idx] : 5;
+      results.push({ ...r, temperature: temp });
     }
 
     if (i + BATCH_SIZE < items.length) await new Promise(r => setTimeout(r, BATCH_DELAY));
