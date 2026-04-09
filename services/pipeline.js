@@ -180,47 +180,39 @@ async function refilterItems(days = 3) {
       "SELECT id, headline, summary FROM news_items WHERE status='free' AND published_at > NOW() - INTERVAL '" + days + " days' ORDER BY published_at DESC"
     );
     if (!items.length) { console.log('[Refilter] No items to rescore'); return; }
-    console.log('[Refilter] Rescoring ' + items.length + ' items');
     logEvent('refilter', `Przeliczam temperaturę: ${items.length} newsów`);
 
     const { rows: sr } = await pool.query("SELECT value FROM settings WHERE key='temperature_instructions'");
-    const tempInstructions = sr[0]?.value || `Oceń temperaturę (potencjał redakcyjny) każdego artykułu:
-10 = premiera AAA, globalny skandal, wydarzenie które zdominuje gaming media
-8-9 = ważna zapowiedź, duży patch popularnej gry, poważny kryzys studia
-6-7 = solidny news: mniejsza premiera, ciekawa aktualizacja, wartościowy industry news
-4-5 = przeciętny news: niszowy tytuł, drobna aktualizacja, branżowa ciekawostka
-1-3 = słaby potencjał: bardzo niszowy temat, marginalny developer, nieistotna informacja
-GTA, Elden Ring, Nintendo, PlayStation, Xbox, Minecraft, Fortnite = wyżej. Nieznane indie = niżej.`;
+    const scale = sr[0]?.value || `Oceń temperaturę (potencjał redakcyjny) newsa gamingowego w skali 1-10.
+10 = premiera AAA, globalny skandal
+8-9 = ważna zapowiedź, duży patch, kryzys studia
+6-7 = solidny news: premiera indie, ciekawa aktualizacja
+4-5 = przeciętny: niszowy tytuł, drobna aktualizacja
+1-3 = słaby: marginalny temat, nieznany deweloper
+GTA, Elden Ring, Nintendo, PlayStation, Xbox = wyżej.`;
     const model = await getModelForTask('news');
 
-    const BATCH = 5;
     let updated = 0;
-    for (let i = 0; i < items.length; i += BATCH) {
-      const batch = items.slice(i, i + BATCH);
-      const lines = batch.map((r, j) => (j + 1) + '. ' + (r.headline || r.summary || '').slice(0, 120)).join('\n');
-      const prompt = tempInstructions + '\n\nOceń każdy artykuł. Odpowiedź to dokładnie ' + batch.length + ' liczb całkowitych oddzielonych przecinkami:\n\n' + lines + '\n\nOdpowiedź:';
-
+    for (const item of items) {
+      const text = (item.headline || item.summary || '').slice(0, 200);
+      const prompt = `${scale}\n\nNews: "${text}"\n\nOdpowiedź (tylko jedna liczba 1-10):`;
       try {
-        const raw = await callAI(prompt, { model, temperature: 0.1, maxTokens: 32 });
-        console.log('[Refilter] batch ' + (Math.floor(i / BATCH) + 1) + ' raw: "' + raw.trim() + '"');
-        const nums = (raw.match(/\b([1-9]|10)\b/g) || []).map(Number);
-        if (nums.length >= batch.length) {
-          for (let j = 0; j < batch.length; j++) {
-            const temp = Math.min(10, Math.max(1, nums[j]));
-            await pool.query('UPDATE news_items SET temperature=$1 WHERE id=$2', [temp, batch[j].id]);
-            updated++;
-          }
+        const raw = await callAI(prompt, { model, temperature: 0, maxTokens: 4 });
+        const match = raw.match(/\b(10|[1-9])\b/);
+        if (match) {
+          const temp = Number(match[1]);
+          await pool.query('UPDATE news_items SET temperature=$1 WHERE id=$2', [temp, item.id]);
+          updated++;
         } else {
-          logEvent('error', `Refilter batch ${Math.floor(i / BATCH) + 1}: zła odpowiedź AI`, `got ${nums.length}/${batch.length} numbers`);
+          logEvent('error', 'Refilter: brak liczby w odpowiedzi', raw.slice(0, 40));
         }
       } catch (err) {
-        logEvent('error', `Refilter batch ${Math.floor(i / BATCH) + 1} błąd`, err.message);
+        logEvent('error', 'Refilter item błąd', err.message);
       }
-      if (i + BATCH < items.length) await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 300));
     }
-    logEvent('refilter', `Zakończono przeliczanie: ${updated}/${items.length} newsów`);
-    console.log('[Refilter] Done: ' + updated + '/' + items.length);
-  } catch (err) { console.error('[Refilter]', err.message); }
+    logEvent('refilter', `Zakończono: ${updated}/${items.length} newsów`);
+  } catch (err) { logEvent('error', 'Refilter krytyczny', err.message); }
   finally { isRefiltering = false; }
 }
 
