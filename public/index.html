@@ -27,7 +27,150 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .hd-right{display:flex;align-items:center;gap:14px}
 .clock{font-family:var(--display);font-size:13px;color:var(--dim);font-weight:500;letter-spacing:.05em}
 .live{display:flex;align-items:center;gap:8px}.live-dot{width:8px;height:8px;border-radius:50%;background:var(--neon);box-shadow:0 0 12px var(--neon-glow);animation:pulse 2s ease infinite}
-@keyframes pulse{0%,100%{box-shadow:0 0 12px var(--neon-glow)}50%{box-shadow:0 0 24px rgba(0,255,136,.35)}}
+/* === MICROINTERACTION ANIMATIONS === */
+@keyframes pulse{0%,100%{box-shadow:0 0 12px var(--neon-glow)}50%{box-shadow:0 0 28px rgba(0,255,136,.45)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{0%{transform:scale(.92)}60%{transform:scale(1.04)}100%{transform:scale(1)}}
+@keyframes ripple{0%{transform:scale(0);opacity:.4}100%{transform:scale(2.5);opacity:0}}
+@keyframes checkDraw{from{stroke-dashoffset:24}to{stroke-dashoffset:0}}
+@keyframes cardIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes tempPop{0%{transform:scale(1)}40%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes errorShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+@keyframes badgePop{0%{transform:scale(0) rotate(-12deg)}70%{transform:scale(1.15) rotate(3deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 0 0 var(--neon-glow)}50%{box-shadow:0 0 0 4px transparent}}
+
+/* Card entrance */
+.card{animation:cardIn .28s cubic-bezier(.22,1,.36,1) both}
+.grid .card:nth-child(1){animation-delay:.02s}
+.grid .card:nth-child(2){animation-delay:.05s}
+.grid .card:nth-child(3){animation-delay:.08s}
+.grid .card:nth-child(4){animation-delay:.11s}
+.grid .card:nth-child(5){animation-delay:.14s}
+.grid .card:nth-child(6){animation-delay:.17s}
+
+/* Card hover - lift with glow trail */
+.card{transition:border-color .2s,transform .25s cubic-bezier(.4,0,.2,1),box-shadow .25s cubic-bezier(.4,0,.2,1)}
+.card:hover{border-color:var(--border2);transform:translateY(-5px) scale(1.005);box-shadow:0 20px 60px rgba(0,0,0,.32),0 0 0 1px var(--border2)}
+[data-theme="light"] .card:hover{box-shadow:0 14px 44px rgba(0,0,0,.1),0 0 0 1px rgba(0,0,0,.1)}
+.card.st-prod:hover{box-shadow:0 20px 60px rgba(0,0,0,.3),0 0 20px var(--neon-glow)}
+.card.st-res:hover{box-shadow:0 20px 60px rgba(0,0,0,.3),0 0 20px var(--cyan-bg)}
+
+/* Card image zoom */
+.c-img img{transition:transform .6s cubic-bezier(.4,0,.2,1)}
+.card:hover .c-img img{transform:scale(1.07)}
+
+/* Temperature ring - pop on mount */
+.c-ring{animation:tempPop .4s cubic-bezier(.22,1,.36,1) both;animation-delay:.15s}
+.c-temp{transition:transform .2s cubic-bezier(.4,0,.2,1),box-shadow .2s}
+.card:hover .c-temp{transform:scale(1.06);box-shadow:0 4px 16px rgba(0,0,0,.3)}
+
+/* Button microinteractions */
+.c-btn{transition:all .18s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden}
+.c-btn::after{content:'';position:absolute;inset:0;background:currentColor;opacity:0;border-radius:inherit;transform:scale(0);pointer-events:none}
+.c-btn:active{transform:scale(.95)}
+.c-btn:active::after{animation:ripple .4s ease-out}
+.c-btn.gr:hover{background:rgba(0,255,136,.14);box-shadow:0 0 16px var(--neon-glow);transform:translateY(-1px)}
+.c-btn.cy:hover{background:rgba(0,212,255,.14);box-shadow:0 0 14px var(--cyan-bg);transform:translateY(-1px)}
+
+/* Dismiss button */
+.c-dismiss{transition:all .2s cubic-bezier(.4,0,.2,1);transform:scale(.8);opacity:0}
+.card:hover .c-dismiss{transform:scale(1);opacity:1}
+.c-dismiss:hover{background:var(--hot)!important;color:#fff!important;transform:scale(1.15)!important;box-shadow:0 4px 12px rgba(255,61,61,.4)}
+.c-dismiss:active{transform:scale(.9)!important}
+
+/* Nav pills */
+.nav-pill{transition:all .2s cubic-bezier(.4,0,.2,1);position:relative}
+.nav-pill:hover{color:var(--text);transform:translateY(-1px)}
+.nav-pill.on{animation:pop .25s cubic-bezier(.22,1,.36,1)}
+.nav-pill:active{transform:scale(.95)}
+
+/* Header buttons */
+.theme-btn{transition:all .2s cubic-bezier(.4,0,.2,1)}
+.theme-btn:hover{border-color:var(--neon-br);color:var(--neon);transform:rotate(15deg) scale(1.1);box-shadow:0 0 14px var(--neon-glow)}
+.theme-btn:active{transform:rotate(15deg) scale(.92)}
+
+/* Btn-run (Odśwież, Wyślij etc) */
+.btn-run{transition:all .18s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden}
+.btn-run:hover{background:rgba(0,255,136,.14);box-shadow:0 0 18px var(--neon-glow);transform:translateY(-1px)}
+.btn-run:active{transform:scale(.95) translateY(0)}
+
+/* Toolbar tabs */
+.ttab{transition:all .18s cubic-bezier(.4,0,.2,1)}
+.ttab:hover{color:var(--text);transform:translateY(-1px)}
+.ttab.on{animation:pop .22s cubic-bezier(.22,1,.36,1)}
+.ttab:active{transform:scale(.94)}
+
+/* Sort options */
+.sort-opt{transition:all .18s cubic-bezier(.4,0,.2,1)}
+.sort-opt:hover{color:var(--text2);transform:translateY(-1px)}
+.sort-opt.on{animation:pop .22s cubic-bezier(.22,1,.36,1)}
+.sort-opt:active{transform:scale(.93)}
+
+/* Badge pop */
+.c-badge{animation:badgePop .3s cubic-bezier(.22,1,.36,1) both;animation-delay:.2s}
+.pc-pip{animation:badgePop .3s cubic-bezier(.22,1,.36,1)}
+
+/* Status badge on card */
+.card.st-prod .c-badge,
+.card.st-res .c-badge{animation:badgePop .35s cubic-bezier(.22,1,.36,1) both}
+
+/* Error shake */
+.err.show{animation:slideDown .22s cubic-bezier(.22,1,.36,1),errorShake .4s .1s cubic-bezier(.36,.07,.19,.97) both}
+
+/* Settings inputs */
+.rv-input{transition:all .2s cubic-bezier(.4,0,.2,1)}
+.rv-input:focus{transform:none;box-shadow:0 0 0 3px var(--neon-glow)}
+.st-ta:focus{box-shadow:0 0 0 3px var(--neon-glow)}
+.btn{transition:all .18s cubic-bezier(.4,0,.2,1)}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.btn:active{transform:scale(.95)}
+
+/* Log rows fade in */
+.log-row{animation:fadeIn .2s cubic-bezier(.22,1,.36,1) both}
+.log-row:nth-child(1){animation-delay:.03s}
+.log-row:nth-child(2){animation-delay:.06s}
+.log-row:nth-child(3){animation-delay:.09s}
+.log-row:nth-child(4){animation-delay:.12s}
+.log-row:nth-child(5){animation-delay:.15s}
+
+/* Day row slide in */
+.day-row{animation:slideDown .25s cubic-bezier(.22,1,.36,1) both}
+
+/* Felieton items */
+.fel-item{transition:background .2s,padding .2s;border-radius:8px}
+.fel-item:hover{background:var(--surface);padding-left:8px;padding-right:8px}
+.fel-act{transition:all .18s cubic-bezier(.4,0,.2,1)}
+.fel-act:hover{transform:scale(1.15)}
+.fel-act:active{transform:scale(.88)}
+.fel-act.go:hover{box-shadow:0 0 12px var(--neon-glow)}
+.fel-act.rm:hover{box-shadow:0 0 10px rgba(255,68,68,.3)}
+
+/* Feed toggle */
+.cf-toggle-sl{transition:background .25s cubic-bezier(.4,0,.2,1)}
+.cf-toggle-sl::before{transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.cf-toggle input:checked+.cf-toggle-sl::before{transform:translateX(16px) scale(1.1)}
+
+/* More button */
+.more-btn{transition:all .2s cubic-bezier(.4,0,.2,1)}
+.more-btn:hover{background:var(--surface);color:var(--text);border-color:var(--border2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.more-btn:active{transform:scale(.97)}
+
+/* Rv-card */
+.rv-card{transition:all .22s cubic-bezier(.4,0,.2,1)}
+.rv-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+
+/* Panel sections */
+.st-block{transition:background .2s}
+.st-block:hover{background:var(--surface)}
+
+/* Logo pulse */
+.logo-mark::before{transition:opacity .3s}
+.logo-mark:hover::before{opacity:.22}
+.logo-mark:hover svg{filter:drop-shadow(0 0 8px var(--neon))}
+
 .live-label{font-family:var(--display);font-size:10px;font-weight:600;color:var(--neon);text-transform:uppercase;letter-spacing:.1em}
 .theme-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--dim);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}.theme-btn:hover{border-color:var(--border2);color:var(--text)}
 .cmd-strip{padding:14px 0;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
