@@ -225,7 +225,7 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .pc-pip{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:10px;font-weight:800;background:var(--neon);color:var(--bg);flex-shrink:0}
 .more-btn{display:block;width:100%;padding:14px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--dim);font-size:14px;font-weight:700;cursor:pointer;text-align:center;margin:20px 0;font-family:var(--display);text-transform:uppercase;letter-spacing:.06em;transition:all .2s}.more-btn:hover{background:var(--surface);color:var(--text);border-color:var(--border2)}
 .rv-section{display:none}
-#mod-reviews,#mod-felietony,#mod-settings{max-width:1300px;margin:0 auto;padding:0 36px;position:relative;z-index:1}
+#mod-reviews,#mod-felietony,#mod-settings,#mod-logs{max-width:1300px;margin:0 auto;padding:0 36px;position:relative;z-index:1}
 .rv-form{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:24px}[data-theme="light"] .rv-form{background:#fff;border-color:rgba(0,0,0,.08)}
 .rv-form h3{font-family:var(--display);font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:16px}
 .rv-input{width:100%;font-size:14px;padding:10px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);outline:none;margin-bottom:10px;font-family:var(--body);transition:all .2s}.rv-input:focus{border-color:var(--neon-br);background:var(--surface2)}.rv-input::placeholder{color:var(--dimmer)}
@@ -234,6 +234,56 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .rv-list{display:grid;grid-template-columns:1fr 1fr;gap:14px;min-width:0}
 .rv-list>div{min-width:0}
 @media(max-width:900px){.rv-list{grid-template-columns:1fr}}
+@media(max-width:640px){
+/* Padding */
+.w{padding:0 16px}
+#mod-reviews,#mod-felietony,#mod-settings,#mod-logs{padding:0 16px}
+
+/* Header */
+header{padding:12px 0;flex-wrap:wrap;gap:8px}
+.logo-group{flex:1;min-width:0}
+.logo-text{font-size:20px}
+.logo-mark{width:32px;height:32px}
+.nav-pills{margin-left:12px;padding-left:12px;gap:2px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.nav-pills::-webkit-scrollbar{display:none}
+.nav-pill{font-size:11px;padding:6px 14px;white-space:nowrap}
+.hd-right{gap:8px}
+.clock{display:none}
+.live-label{display:none}
+.theme-btn{width:32px;height:32px}
+
+/* Cmd strip */
+.cmd-strip{gap:8px;padding:10px 0}
+.cmd-stats{flex-wrap:wrap;gap:4px}
+.cmd-stat{font-size:11px;padding:4px 8px}
+.cmd-right{width:100%;margin-left:0;flex-wrap:wrap;gap:6px}
+.cmd-input{width:100%;flex:1 1 auto}
+.btn-run{font-size:11px;padding:8px 14px;white-space:nowrap}
+
+/* Toolbar */
+.toolbar{flex-direction:column;align-items:flex-start;gap:12px;padding:20px 0 14px}
+.section-title{font-size:26px}
+.toolbar-tabs{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.toolbar-tabs::-webkit-scrollbar{display:none}
+.ttab{white-space:nowrap;padding:7px 12px;font-size:11px}
+
+/* Sort strip */
+.sort-strip{flex-wrap:wrap;gap:6px}
+
+/* Grid */
+.grid{grid-template-columns:1fr;gap:12px}
+
+/* Cards */
+.card:hover{transform:none;box-shadow:none}
+.c-img img{transition:none}
+
+/* Footer */
+footer{padding:20px 16px 28px;margin-top:40px}
+
+/* Settings */
+.st-block{padding:16px}
+.panel{border-radius:10px}
+}
 .rv-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;transition:all .2s;min-width:0;overflow:hidden}[data-theme="light"] .rv-card{background:#fff;border-color:rgba(0,0,0,.08)}.rv-card:hover{border-color:var(--border2)}.rv-card.produced{border-color:var(--neon-br)}
 .rv-title{font-size:18px;font-weight:700;margin-bottom:8px}.rv-links{font-size:12px;color:var(--dim);margin-bottom:8px}.rv-links a{color:var(--cyan);text-decoration:none;display:block;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rv-links a:hover{text-decoration:underline}
 .rv-notes{font-size:13px;color:var(--text2);font-style:italic;margin-bottom:10px}.rv-meta{font-size:11px;color:var(--dim);margin-bottom:12px;font-weight:600}.rv-acts{display:flex;gap:8px}
