@@ -336,8 +336,9 @@ router.post('/felietony/generate', async (req, res) => {
       ? `\nISNIEJĄCE TEMATY (nie powtarzaj tych ani podobnych):\n${existing.map((r, i) => `${i + 1}. ${r.title}`).join('\n')}`
       : '';
 
+    const today = new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
     const currentCtx = current_events
-      ? `\nWAŻNE: Propozycje MUSZĄ nawiązywać do bieżących wydarzeń w branży gier. Najpierw przeszukaj internet, sprawdź co się dzieje w gamingu w ostatnich dniach (premiery, kontrowersje, ogłoszenia, trendy), a potem zaproponuj felietony powiązane z aktualnymi tematami. Każdy brief powinien odwoływać się do konkretnego, świeżego wydarzenia.`
+      ? `\nDzisiaj jest ${today}. WYMÓG: każda propozycja MUSI bazować na konkretnym wydarzeniu z ostatnich 7 dni. Przed generowaniem przeszukaj internet - sprawdź co wydarzyło się w gamingu w ostatnim tygodniu: premiery, zwiastuny, kontrowersje, wyniki finansowe, zwolnienia, patche. Każdy brief musi zawierać nazwę konkretnego wydarzenia/gry/firmy i datę lub "w tym tygodniu"/"kilka dni temu". Jeśli nie znajdziesz świeżego wydarzenia pasującego do tematu - nie generuj tej propozycji.`
       : '';
 
     const prompt = `${instructions}
@@ -352,8 +353,11 @@ Wygeneruj DOKŁADNIE 10 propozycji felietonów. Dla każdej podaj:
 Odpowiedz TYLKO czystym JSON array, bez żadnego tekstu przed ani po:
 [{"title":"...","brief":"..."}]`;
 
-    // Google Search grounding only works with Gemini models
+    // Google Search grounding works with Gemini native models
     const tools = (current_events && isGeminiModel(model)) ? [{ google_search: {} }] : null;
+    if (current_events && !isGeminiModel(model)) {
+      console.warn('[Felietony] current_events=true but model is not Gemini - no live search, using knowledge cutoff');
+    }
     const raw = await callAI(prompt, { model, temperature: 0.9, maxTokens: 4096, tools });
     const ideas = parseJsonFromAI(raw);
 

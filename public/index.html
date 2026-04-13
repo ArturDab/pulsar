@@ -362,7 +362,7 @@ footer{max-width:1300px;margin:0 auto;padding:28px 36px 36px;display:flex;justif
 <div class="rv-form">
   <h3>Generator pomysłów</h3>
   <textarea class="rv-input" id="felDir" placeholder="Kierunek tematyczny (opcjonalnie), np. nostalgia za erą PS2, kontrowersje wokół early access, gry które przepowiedziały przyszłość..." rows="2" style="resize:vertical"></textarea>
-  <label class="fel-check"><input type="checkbox" id="felCurrent"> Powiąż z bieżącymi wydarzeniami (AI zrobi research w sieci)</label>
+  <label class="fel-check"><input type="checkbox" id="felCurrent"> Powiąż z bieżącymi wydarzeniami <span style="color:var(--dim);font-size:11px">(wymaga modelu Gemini - przeszukuje internet)</span></label>
   <div style="display:flex;gap:10px;align-items:center">
     <button class="btn-run" id="felGenBtn" onclick="generateFelietony()">Generuj 10 pomysłów</button>
     <span id="felGenStatus" style="font-size:12px;color:var(--dim)"></span>
@@ -580,9 +580,27 @@ async function refilter(){var b=document.getElementById('refilterBtn');b.textCon
 if(!S.settingsTab)S.settingsTab='newsy';
 function renderSettings(){
 var models=[
-  {g:'Google',items:[{v:'gemini-2.5-flash',l:'Gemini 2.5 Flash'},{v:'gemini-2.5-pro',l:'Gemini 2.5 Pro'},{v:'gemini-2.0-flash',l:'Gemini 2.0 Flash'}]},
-  {g:'Anthropic (OpenRouter)',items:[{v:'anthropic/claude-sonnet-4-5',l:'Claude Sonnet 4.5'},{v:'anthropic/claude-haiku-4-5',l:'Claude Haiku 4.5'},{v:'anthropic/claude-opus-4-5',l:'Claude Opus 4.5'}]},
-  {g:'OpenAI (OpenRouter)',items:[{v:'openai/gpt-4o',l:'GPT-4o'},{v:'openai/gpt-4o-mini',l:'GPT-4o Mini'},{v:'openai/o4-mini',l:'o4-mini'}]},
+  {g:'Google',items:[
+    {v:'gemini-2.5-flash',l:'Gemini 2.5 Flash'},
+    {v:'gemini-2.5-flash-thinking-exp',l:'Gemini 2.5 Flash (myślący)'},
+    {v:'gemini-2.5-pro',l:'Gemini 2.5 Pro'},
+    {v:'gemini-2.5-pro-exp-03-25',l:'Gemini 2.5 Pro (exp)'},
+    {v:'gemini-2.0-flash',l:'Gemini 2.0 Flash'},
+  ]},
+  {g:'Anthropic (OpenRouter)',items:[
+    {v:'anthropic/claude-sonnet-4-6',l:'Claude Sonnet 4.6'},
+    {v:'anthropic/claude-sonnet-4-6:thinking',l:'Claude Sonnet 4.6 (myślący)'},
+    {v:'anthropic/claude-sonnet-4-5',l:'Claude Sonnet 4.5'},
+    {v:'anthropic/claude-haiku-4-5',l:'Claude Haiku 4.5'},
+    {v:'anthropic/claude-opus-4',l:'Claude Opus 4'},
+  ]},
+  {g:'OpenAI (OpenRouter)',items:[
+    {v:'openai/gpt-4.1',l:'GPT-4.1'},
+    {v:'openai/gpt-4.1-mini',l:'GPT-4.1 Mini'},
+    {v:'openai/gpt-4o',l:'GPT-4o'},
+    {v:'openai/o4-mini',l:'o4-mini'},
+    {v:'openai/o3',l:'o3'},
+  ]},
 ];
 function sel(id){
   return '<select class="rv-input" id="'+id+'" style="margin:0;padding:8px 12px">'
