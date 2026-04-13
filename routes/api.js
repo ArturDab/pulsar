@@ -435,6 +435,64 @@ router.post('/felietony/:id/produce', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// --- MODELS ---
+let _modelsCache = null, _modelsCacheTs = 0;
+router.get('/models', async (req, res) => {
+  const TTL = 6 * 3600 * 1000;
+  if (_modelsCache && Date.now() - _modelsCacheTs < TTL) return res.json(_modelsCache);
+  try {
+    const { rows: sr } = await pool.query("SELECT value FROM settings WHERE key='openrouter_api_key'");
+    const orKey = sr[0]?.value || process.env.OPENROUTER_API_KEY;
+
+    // Google native models - fetch from Generative Language API
+    let googleItems = [];
+    try {
+      const gRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}&pageSize=50`
+      );
+      const gData = await gRes.json();
+      googleItems = (gData.models || [])
+        .filter(m => m.name && m.supportedGenerationMethods?.includes('generateContent'))
+        .map(m => {
+          const id = m.name.replace('models/', '');
+          const label = m.displayName || id;
+          return { v: id, l: label };
+        })
+        .filter(m => m.v.startsWith('gemini-'))
+        .sort((a, b) => b.v.localeCompare(a.v));
+    } catch (e) { console.error('[Models] Google fetch failed:', e.message); }
+
+    // OpenRouter models - filter to Anthropic + OpenAI
+    let orItems = { anthropic: [], openai: [] };
+    if (orKey) {
+      try {
+        const orRes = await fetch('https://openrouter.ai/api/v1/models', {
+          headers: { 'Authorization': `Bearer ${orKey}` }
+        });
+        const orData = await orRes.json();
+        (orData.data || []).forEach(m => {
+          if (!m.id) return;
+          const label = m.name || m.id;
+          if (m.id.startsWith('anthropic/')) orItems.anthropic.push({ v: m.id, l: label });
+          else if (m.id.startsWith('openai/')) orItems.openai.push({ v: m.id, l: label });
+        });
+        // Sort: newest first (by id descending)
+        orItems.anthropic.sort((a, b) => b.v.localeCompare(a.v));
+        orItems.openai.sort((a, b) => b.v.localeCompare(a.v));
+      } catch (e) { console.error('[Models] OpenRouter fetch failed:', e.message); }
+    }
+
+    _modelsCache = { google: googleItems, anthropic: orItems.anthropic, openai: orItems.openai };
+    _modelsCacheTs = Date.now();
+    res.json(_modelsCache);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/models/refresh', (req, res) => {
+  _modelsCache = null; _modelsCacheTs = 0;
+  res.json({ ok: true });
+});
+
 // --- LOGS ---
 router.get('/logs', (req, res) => { res.json(getLog()); });
 

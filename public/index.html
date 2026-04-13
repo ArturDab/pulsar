@@ -580,34 +580,28 @@ async function saveFelDays(){var v=document.getElementById('felDaysRange').value
 async function saveWebhook(key,inId,btnId,stId){var v=document.getElementById(inId).value.trim(),b=document.getElementById(btnId),st=document.getElementById(stId);if(!v)return;b.textContent='...';b.disabled=true;await fetch('/api/settings/'+key,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;if(st){st.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';st.style.opacity='1';setTimeout(function(){st.style.opacity='0'},3000)}}
 async function refilter(){var b=document.getElementById('refilterBtn');b.textContent='...';b.disabled=true;await fetch('/api/pipeline/refilter',{method:'POST'});var p=setInterval(async function(){try{var s=await fetch('/api/pipeline/status').then(function(r){return r.json()});if(!s.isRefiltering){clearInterval(p);await load();b.textContent='Przefiltruj';b.disabled=false}}catch(e){}},3e3)}
 if(!S.settingsTab)S.settingsTab='newsy';
-function renderSettings(){
-var models=[
-  {g:'Google',items:[
-    {v:'gemini-2.5-flash',l:'Gemini 2.5 Flash'},
-    {v:'gemini-2.5-flash-thinking-exp',l:'Gemini 2.5 Flash (myślący)'},
-    {v:'gemini-2.5-pro',l:'Gemini 2.5 Pro'},
-    {v:'gemini-2.5-pro-exp-03-25',l:'Gemini 2.5 Pro (exp)'},
-    {v:'gemini-2.0-flash',l:'Gemini 2.0 Flash'},
-  ]},
-  {g:'Anthropic (OpenRouter)',items:[
-    {v:'anthropic/claude-sonnet-4-6',l:'Claude Sonnet 4.6'},
-    {v:'anthropic/claude-sonnet-4-6:thinking',l:'Claude Sonnet 4.6 (myślący)'},
-    {v:'anthropic/claude-sonnet-4-5',l:'Claude Sonnet 4.5'},
-    {v:'anthropic/claude-haiku-4-5',l:'Claude Haiku 4.5'},
-    {v:'anthropic/claude-opus-4',l:'Claude Opus 4'},
-  ]},
-  {g:'OpenAI (OpenRouter)',items:[
-    {v:'openai/gpt-4.1',l:'GPT-4.1'},
-    {v:'openai/gpt-4.1-mini',l:'GPT-4.1 Mini'},
-    {v:'openai/gpt-4o',l:'GPT-4o'},
-    {v:'openai/o4-mini',l:'o4-mini'},
-    {v:'openai/o3',l:'o3'},
-  ]},
+if(!S.modelsCache)S.modelsCache=null;
+async function renderSettings(){
+// Show skeleton immediately
+var wrap=document.getElementById('v-settings-wrap');
+if(!wrap.querySelector('.section-title')){
+  setH(wrap,'<div class="toolbar"><div class="toolbar-left"><div class="section-title">Ustawienia</div></div></div><div class="panel"><div class="empty">Ładowanie modeli...</div></div>');
+}
+// Fetch models if not cached
+if(!S.modelsCache){
+  try{S.modelsCache=await fetch('/api/models').then(function(r){return r.json()});}
+  catch(e){S.modelsCache={google:[],anthropic:[],openai:[]};}
+}
+var md=S.modelsCache;
+var groups=[
+  {g:'Google (natywny)',items:(md.google&&md.google.length)?md.google:[{v:'gemini-2.5-flash',l:'Gemini 2.5 Flash'},{v:'gemini-2.5-pro',l:'Gemini 2.5 Pro'}]},
+  {g:'Anthropic (OpenRouter)',items:(md.anthropic&&md.anthropic.length)?md.anthropic:[{v:'anthropic/claude-sonnet-4-5',l:'Claude Sonnet 4.5'}]},
+  {g:'OpenAI (OpenRouter)',items:(md.openai&&md.openai.length)?md.openai:[{v:'openai/gpt-4o',l:'GPT-4o'}]},
 ];
 function sel(id){
   return '<select class="rv-input" id="'+id+'" style="margin:0;padding:8px 12px">'
-    +models.map(function(grp){
-      return '<optgroup label="'+grp.g+'">'+grp.items.map(function(m){return '<option value="'+m.v+'">'+esc(m.l)+'</option>'}).join('')+'</optgroup>';
+    +groups.map(function(grp){
+      return '<optgroup label="'+grp.g+'">'+grp.items.map(function(m){return '<option value="'+esc(m.v)+'">'+esc(m.l)+'</option>'}).join('')+'</optgroup>';
     }).join('')+'</select>';
 }
 function whBlock(label,hint,inId,key){
@@ -663,7 +657,7 @@ if(S.settingsTab==='newsy'){
   var newsWh=whBlock('Webhook — produkcja newsów','URL webhooka uruchamianego przyciskiem Produkcja na karcie newsa','newsWebhookIn','news_webhook_url');
   var revWh=whBlock('Webhook — produkcja recenzji','URL webhooka uruchamianego przyciskiem Produkcja na karcie recenzji','reviewWebhookIn','review_webhook_url');
   var felWh=whBlock('Webhook — produkcja felietonów','URL webhooka uruchamianego przyciskiem wysłania w generatorze','felWebhookIn','felieton_webhook_url');
-  bodyHtml='<div class="panel">'+orKeyBlock+newsWh+revWh+felWh+'</div>';
+  bodyHtml='<div class="panel">'+orKeyBlock+newsWh+revWh+felWh+'<div class="st-block"><div class="st-lbl">Lista modeli</div><div class="st-hint">Modele pobierane są automatycznie z OpenRouter i Google. Cache 6h.</div><div style="margin-top:10px;display:flex;gap:10px;align-items:center"><button class="btn" onclick="S.modelsCache=null;fetch(\'/api/models/refresh\',{method:\'POST\'}).then(function(){renderSettings()})">Odśwież listę modeli</button></div></div></div>';
 }
 setH(document.getElementById('v-settings-wrap'),
   '<div class="toolbar"><div class="toolbar-left"><div class="section-title">Ustawienia</div></div>'+tabsHtml+'</div>'+bodyHtml);
