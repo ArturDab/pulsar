@@ -326,8 +326,10 @@ router.post('/felietony/generate', async (req, res) => {
     const { callAI, parseJsonFromAI, isGeminiModel } = require('../services/ai');
     const { getModelForTask } = require('../services/gemini');
 
-    const { rows: settingsRows } = await pool.query("SELECT value FROM settings WHERE key='felieton_instructions'");
-    const instructions = settingsRows[0]?.value || '';
+    const { rows: settingsRows } = await pool.query("SELECT key, value FROM settings WHERE key IN ('felieton_instructions','felieton_search_days')");
+    const smap = Object.fromEntries(settingsRows.map(r => [r.key, r.value]));
+    const instructions = smap['felieton_instructions'] || '';
+    const searchDays = parseInt(smap['felieton_search_days'] || '7', 10);
     const model = await getModelForTask('felieton');
 
     // Pass existing titles so AI avoids repetitions
@@ -338,7 +340,7 @@ router.post('/felietony/generate', async (req, res) => {
 
     const today = new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
     const currentCtx = current_events
-      ? `\nDzisiaj jest ${today}. WYMÓG: każda propozycja MUSI bazować na konkretnym wydarzeniu z ostatnich 7 dni. Przed generowaniem przeszukaj internet - sprawdź co wydarzyło się w gamingu w ostatnim tygodniu: premiery, zwiastuny, kontrowersje, wyniki finansowe, zwolnienia, patche. Każdy brief musi zawierać nazwę konkretnego wydarzenia/gry/firmy i datę lub "w tym tygodniu"/"kilka dni temu". Jeśli nie znajdziesz świeżego wydarzenia pasującego do tematu - nie generuj tej propozycji.`
+      ? `\nDzisiaj jest ${today}. WYMÓG: każda propozycja MUSI bazować na konkretnym wydarzeniu z ostatnich ${searchDays} dni. Przeszukaj internet - sprawdź co wydarzyło się w gamingu w tym okresie: premiery, zwiastuny, kontrowersje, wyniki finansowe, zwolnienia, patche. Każdy brief musi zawierać nazwę konkretnego wydarzenia/gry/firmy i informację jak dawno temu (np. "kilka dni temu", "w tym tygodniu"). Jeśli nie znajdziesz świeżego wydarzenia pasującego do tematu - nie generuj tej propozycji.`
       : '';
 
     const prompt = `${instructions}
@@ -353,12 +355,11 @@ Wygeneruj DOKŁADNIE 10 propozycji felietonów. Dla każdej podaj:
 Odpowiedz TYLKO czystym JSON array, bez żadnego tekstu przed ani po:
 [{"title":"...","brief":"..."}]`;
 
-    // Google Search grounding works with Gemini native models
+    // Gemini: native Google Search grounding
+    // OpenRouter models: :online suffix adds web search
     const tools = (current_events && isGeminiModel(model)) ? [{ google_search: {} }] : null;
-    if (current_events && !isGeminiModel(model)) {
-      console.warn('[Felietony] current_events=true but model is not Gemini - no live search, using knowledge cutoff');
-    }
-    const raw = await callAI(prompt, { model, temperature: 0.9, maxTokens: 4096, tools });
+    const online = current_events && !isGeminiModel(model);
+    const raw = await callAI(prompt, { model, temperature: 0.9, maxTokens: 4096, tools, online });
     const ideas = parseJsonFromAI(raw);
 
     if (!Array.isArray(ideas)) throw new Error('AI nie zwróciło tablicy');

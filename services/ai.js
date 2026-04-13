@@ -21,13 +21,14 @@ async function getOpenRouterKey() {
   return process.env.OPENROUTER_API_KEY || null;
 }
 
-async function callAI(prompt, { model, temperature = 0.2, maxTokens = 8192, tools = null } = {}) {
+async function callAI(prompt, { model, temperature = 0.2, maxTokens = 8192, tools = null, online = false } = {}) {
   if (!model) model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   if (isGeminiModel(model)) {
     return callGemini(prompt, model, temperature, maxTokens, tools);
   } else {
-    return callOpenRouter(prompt, model, temperature, maxTokens);
+    const m = online && !model.includes(':online') && !model.includes(':thinking') ? model + ':online' : model;
+    return callOpenRouter(prompt, m, temperature, maxTokens);
   }
 }
 
