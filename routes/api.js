@@ -359,7 +359,7 @@ Odpowiedz TYLKO czystym JSON array, bez żadnego tekstu przed ani po:
     // OpenRouter models: :online suffix adds web search
     const tools = (current_events && isGeminiModel(model)) ? [{ google_search: {} }] : null;
     const online = current_events && !isGeminiModel(model);
-    const raw = await callAI(prompt, { model, temperature: 0.9, maxTokens: 4096, tools, online });
+    const raw = await callAI(prompt, { model, temperature: 0.9, maxTokens: 16000, tools, online });
     const ideas = parseJsonFromAI(raw);
 
     if (!Array.isArray(ideas)) throw new Error('AI nie zwróciło tablicy');
