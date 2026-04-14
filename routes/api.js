@@ -217,39 +217,61 @@ router.get('/slack/messages', async (req, res) => {
 router.post('/slack/sync', async (req, res) => {
   try {
     const { getSlackUrlMap } = require('../services/slack');
+    const { fetchOgTitle } = require('../services/og');
     const rawMap = await getSlackUrlMap(7);
     if (!rawMap.size) return res.json({ synced: 0 });
 
-    // Normalize slack URLs
+    const norm = u => u.toLowerCase().replace(/\/+$/, '');
     const slackMap = new Map();
-    for (const [url, user] of rawMap) {
-      slackMap.set(url.toLowerCase().replace(/\/+$/, ''), user);
-    }
+    for (const [url, user] of rawMap) slackMap.set(norm(url), user);
 
-    // Fetch all active news items with their cluster
     const { rows: items } = await pool.query(
-      "SELECT id, url, cluster_id, status FROM news_items WHERE status IN ('free','reserved','produced','slack_taken')"
+      "SELECT id, url, cluster_id, headline, title, status FROM news_items WHERE status IN ('free','reserved','produced','slack_taken') AND published_at > NOW() - INTERVAL '14 days'"
     );
 
-    // Step 1: find which items directly match a Slack URL
-    const directMatches = new Map(); // item.id → user
+    // Step 1: direct URL match
+    const directMatches = new Map();
     for (const item of items) {
-      const n = item.url.toLowerCase().replace(/\/+$/, '');
-      if (slackMap.has(n)) directMatches.set(item.id, slackMap.get(n));
+      if (slackMap.has(norm(item.url))) directMatches.set(item.id, slackMap.get(norm(item.url)));
     }
 
-    // Step 2: collect cluster_ids of matched items
-    const takenClusters = new Map(); // cluster_id → user
+    // Step 2: cluster spread from direct matches
+    const takenClusters = new Map();
     for (const item of items) {
       if (directMatches.has(item.id) && item.cluster_id && item.cluster_id !== 'inne-tematy') {
         takenClusters.set(item.cluster_id, directMatches.get(item.id));
       }
     }
 
-    // Step 3: mark as slack_taken - direct matches AND all items in the same cluster
+    // Step 3: title matching for Slack URLs not in DB
+    const unmatchedSlackUrls = [...slackMap.entries()].filter(([u]) =>
+      !items.some(i => norm(i.url) === u)
+    );
+    const keywords = w => w.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 3);
+    const newsKw = items.map(i => ({ id: i.id, cluster_id: i.cluster_id, kw: new Set(keywords(i.headline || i.title || '')) }));
+
+    for (const [slackUrl, user] of unmatchedSlackUrls.slice(0, 15)) {
+      const title = await fetchOgTitle(slackUrl);
+      if (!title) continue;
+      const slackKw = keywords(title);
+      if (slackKw.length < 2) continue;
+      let best = null, bestScore = 0;
+      for (const n of newsKw) {
+        const overlap = slackKw.filter(w => n.kw.has(w)).length;
+        const score = overlap / Math.max(slackKw.length, n.kw.size);
+        if (score > bestScore) { bestScore = score; best = n; }
+      }
+      if (bestScore >= 0.35 && best) {
+        directMatches.set(best.id, user);
+        if (best.cluster_id && best.cluster_id !== 'inne-tematy') takenClusters.set(best.cluster_id, user);
+        console.log('[Slack sync] Title match (' + Math.round(bestScore*100) + '%): "' + title + '" → ' + best.cluster_id);
+      }
+    }
+
+    // Step 4: apply slack_taken
     let synced = 0;
     for (const item of items) {
-      if (item.status === 'reserved' || item.status === 'produced') continue; // don't overwrite our own reservations
+      if (item.status === 'reserved' || item.status === 'produced') continue;
       const user = directMatches.get(item.id) || (item.cluster_id && takenClusters.get(item.cluster_id));
       if (user) {
         await pool.query(
@@ -259,7 +281,17 @@ router.post('/slack/sync', async (req, res) => {
         synced++;
       }
     }
-    console.log(`[Slack sync] Marked ${synced} items as taken (${directMatches.size} direct, cluster spread to rest)`);
+
+    // Step 5: spread clusters to any remaining free items
+    for (const [cid, user] of takenClusters) {
+      const r = await pool.query(
+        "UPDATE news_items SET status='slack_taken', reserved_by=$1 WHERE cluster_id=$2 AND status='free'",
+        [user, cid]
+      );
+      synced += r.rowCount;
+    }
+
+    console.log('[Slack sync] Marked ' + synced + ' items (' + directMatches.size + ' direct + title matches)');
     res.json({ synced });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

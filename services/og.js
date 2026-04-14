@@ -58,4 +58,35 @@ async function scrapeOgImages() {
   } catch (err) { console.error('[OG] Error:', err.message); }
 }
 
-module.exports = { scrapeOgImages };
+async function fetchOgTitle(url) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml'
+      },
+      redirect: 'follow'
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const reader = res.body.getReader();
+    let html = '', bytes = 0;
+    while (bytes < 10000) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      html += new TextDecoder().decode(value);
+      bytes += value.length;
+    }
+    reader.cancel();
+    const og = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i);
+    if (og) return og[1].trim();
+    const title = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    return title ? title[1].trim() : null;
+  } catch { return null; }
+}
+
+module.exports = { scrapeOgImages, fetchOgTitle };
