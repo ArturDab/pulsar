@@ -268,14 +268,30 @@ router.post('/slack/sync', async (req, res) => {
       }
     }
 
-    // Step 4: apply slack_taken
-    let synced = 0;
-    for (const item of items) {
-      if (item.status === 'reserved' || item.status === 'produced') continue;
+    // Step 4: apply slack_taken - also override reservations not yet sent to Make
+    let synced = 0, conflicts = 0;
+    const { rows: allItems } = await pool.query(
+      "SELECT id, url, cluster_id, status, produce_count FROM news_items WHERE status IN ('free','reserved','produced','slack_taken') AND published_at > NOW() - INTERVAL '14 days'"
+    );
+    for (const item of allItems) {
       const user = directMatches.get(item.id) || (item.cluster_id && takenClusters.get(item.cluster_id));
-      if (user) {
+      if (!user) continue;
+      if ((item.status === 'reserved' || item.status === 'produced') && (item.produce_count || 0) > 0) {
+        // Already sent to Make - log conflict but don't override
+        console.warn('[Slack sync] CONFLICT: item ' + item.id + ' already produced, taken by ' + user);
+        conflicts++;
+        continue;
+      }
+      if (item.status === 'reserved' || item.status === 'produced') {
+        // Reserved/queued but not yet sent - override with explanation
         await pool.query(
-          "UPDATE news_items SET status='slack_taken', reserved_by=$1 WHERE id=$2 AND status NOT IN ('reserved','produced')",
+          "UPDATE news_items SET status='slack_taken', reserved_by=$1, rejection_reason=$2 WHERE id=$3",
+          [user, 'Ten temat zarezerwował wcześniej ' + user + ' na Slacku', item.id]
+        );
+        synced++;
+      } else if (item.status === 'free' || item.status === 'slack_taken') {
+        await pool.query(
+          "UPDATE news_items SET status='slack_taken', reserved_by=$1 WHERE id=$2",
           [user, item.id]
         );
         synced++;
@@ -291,8 +307,8 @@ router.post('/slack/sync', async (req, res) => {
       synced += r.rowCount;
     }
 
-    console.log('[Slack sync] Marked ' + synced + ' items (' + directMatches.size + ' direct + title matches)');
-    res.json({ synced });
+    console.log('[Slack sync] Marked ' + synced + ' items, ' + conflicts + ' conflicts (already produced)');
+    res.json({ synced, conflicts });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

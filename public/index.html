@@ -469,7 +469,7 @@ async function doAction(id,action,btnEl){
   }
 }
 async function doSend(){var i=document.getElementById('sendUrl'),u=i.value.trim();if(!u)return;try{var r=await fetch('/api/manual-send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});var d=await r.json();if(!r.ok)throw new Error(d.error);i.value=''}catch(e){showErr(e.message)}}
-var _pt=null;async function doSlackSync(){var b=document.getElementById('syncBtn');b.disabled=true;b.textContent='...';try{var r=await fetch('/api/slack/sync',{method:'POST'});var d=await r.json();b.textContent=d.synced?d.synced+' zajętych':'OK';await load();if(S.module==='news'){S.tab='free';setTab('free');}setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}catch(e){b.textContent='Błąd';setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}}
+var _pt=null;async function doSlackSync(){var b=document.getElementById('syncBtn');b.disabled=true;b.textContent='...';try{var r=await fetch('/api/slack/sync',{method:'POST'});var d=await r.json();var label=d.synced?d.synced+' zajętych':'OK';if(d.conflicts)label+=' ('+d.conflicts+' konfliktów)';b.textContent=label;await load();if(S.module==='news'){S.tab='free';setTab('free');}setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},3e3)}catch(e){b.textContent='Błąd';setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}}
 async function doClear(){if(!confirm('Usunąć wszystkie wolne newsy? Zarezerwowane i w produkcji zostaną.'))return;var b=document.getElementById('clearBtn');b.disabled=true;b.textContent='...';var r=await fetch('/api/news/clear',{method:'POST'});var d=await r.json();b.textContent='Wyczyść';b.disabled=false;if(d.ok){await load();doRun()}}
 async function doRun(){var b=document.getElementById('runBtn');b.disabled=true;b.textContent='Odświeżam...';await fetch('/api/pipeline/run',{method:'POST'});if(_pt)clearInterval(_pt);_pt=setInterval(async function(){try{var p=await fetch('/api/pipeline/status').then(function(r){return r.json()});if(!p.isRunning){clearInterval(_pt);_pt=null;await load();b.disabled=false;b.textContent='Odśwież'}}catch(e){}},3e3)}
 
@@ -479,7 +479,7 @@ var isMySlack=isSlack&&item.reserved_by&&item.reserved_by.indexOf('Artur')>=0;
 var cls='card'+(isRes||isMySlack?' st-res':'')+(isProd?' st-prod':'')+(isRej?' st-rej':'')+(isSlack&&!isMySlack?' st-taken':'')+(isDis?' st-dim':'');
 var ov='';
 if(isRej)ov='<div class="c-overlay"><div class="c-overlay-label rej">Odrzucone przez AI</div>'+(item.rejection_reason?'<div class="c-overlay-reason">'+esc(item.rejection_reason)+'</div>':'')+'</div>';
-if(isSlack&&!isMySlack)ov='<div class="c-overlay"><div class="c-overlay-label taken">Zajęte przez innego redaktora</div>'+(item.reserved_by?'<div class="c-overlay-reason">'+esc(item.reserved_by)+'</div>':'')+'</div>';
+if(isSlack&&!isMySlack)ov='<div class="c-overlay"><div class="c-overlay-label taken">'+(item.rejection_reason?'Konflikt rezerwacji':'Zajęte przez innego redaktora')+'</div>'+(item.rejection_reason?'<div class="c-overlay-reason">'+esc(item.rejection_reason)+'</div>':item.reserved_by?'<div class="c-overlay-reason">'+esc(item.reserved_by)+'</div>':'')+'</div>';
 if(isDis)ov='<div class="c-overlay"><div class="c-overlay-label dim">Odrzucone przez Ciebie</div></div>';
 var isInactive=isDis||isRej||(isSlack&&!isMySlack);
 var hl=item.headline||item.cluster_label||item.summary||'';
