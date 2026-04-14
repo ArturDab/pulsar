@@ -293,7 +293,8 @@ footer{padding:20px 16px 28px;margin-top:40px}
 .st-hint{font-size:13px;color:var(--dim);margin-bottom:10px}
 .st-ta{width:100%;font-size:13px;line-height:1.7;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;resize:vertical;outline:none;font-family:var(--body);color:var(--text);transition:all .2s}.st-ta:focus{border-color:var(--neon-br);background:var(--surface2)}
 .btn{font-size:13px;font-weight:600;padding:8px 18px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .2s;font-family:var(--body)}.btn:hover{background:var(--surface2);border-color:var(--border2);color:var(--text)}.btn:disabled{opacity:.3;cursor:not-allowed}
-[data-theme="light"] [data-theme="light"] .sl-av{width:32px;height:32px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--dim);flex-shrink:0}
+.sl-msg{display:flex;gap:12px;padding:14px 18px;border-top:1px solid var(--border)}.sl-msg:first-child{border-top:none}
+.sl-av{width:32px;height:32px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--dim);flex-shrink:0}
 .sl-body{flex:1}.sl-head{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
 .sl-name{font-size:14px;font-weight:600}.sl-time{font-size:12px;color:var(--dim)}
 .sl-text{font-size:14px;color:var(--text2);line-height:1.5;word-break:break-word}.sl-text a{color:var(--cyan);text-decoration:none}
@@ -468,7 +469,7 @@ async function doAction(id,action,btnEl){
   }
 }
 async function doSend(){var i=document.getElementById('sendUrl'),u=i.value.trim();if(!u)return;try{var r=await fetch('/api/manual-send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});var d=await r.json();if(!r.ok)throw new Error(d.error);i.value=''}catch(e){showErr(e.message)}}
-var _pt=null;async function doSlackSync(){var b=document.getElementById('syncBtn');b.disabled=true;b.textContent='...';try{var r=await fetch('/api/slack/sync',{method:'POST'});var d=await r.json();b.textContent=d.synced?d.synced+' zajętych':'OK';await load();setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}catch(e){b.textContent='Błąd';setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}}
+var _pt=null;async function doSlackSync(){var b=document.getElementById('syncBtn');b.disabled=true;b.textContent='...';try{var r=await fetch('/api/slack/sync',{method:'POST'});var d=await r.json();b.textContent=d.synced?d.synced+' zajętych':'OK';await load();if(S.module==='news'){S.tab='free';setTab('free');}setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}catch(e){b.textContent='Błąd';setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}}
 async function doClear(){if(!confirm('Usunąć wszystkie wolne newsy? Zarezerwowane i w produkcji zostaną.'))return;var b=document.getElementById('clearBtn');b.disabled=true;b.textContent='...';var r=await fetch('/api/news/clear',{method:'POST'});var d=await r.json();b.textContent='Wyczyść';b.disabled=false;if(d.ok){await load();doRun()}}
 async function doRun(){var b=document.getElementById('runBtn');b.disabled=true;b.textContent='Odświeżam...';await fetch('/api/pipeline/run',{method:'POST'});if(_pt)clearInterval(_pt);_pt=setInterval(async function(){try{var p=await fetch('/api/pipeline/status').then(function(r){return r.json()});if(!p.isRunning){clearInterval(_pt);_pt=null;await load();b.disabled=false;b.textContent='Odśwież'}}catch(e){}},3e3)}
 
