@@ -293,7 +293,19 @@ footer{padding:20px 16px 28px;margin-top:40px}
 .st-hint{font-size:13px;color:var(--dim);margin-bottom:10px}
 .st-ta{width:100%;font-size:13px;line-height:1.7;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;resize:vertical;outline:none;font-family:var(--body);color:var(--text);transition:all .2s}.st-ta:focus{border-color:var(--neon-br);background:var(--surface2)}
 .btn{font-size:13px;font-weight:600;padding:8px 18px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .2s;font-family:var(--body)}.btn:hover{background:var(--surface2);border-color:var(--border2);color:var(--text)}.btn:disabled{opacity:.3;cursor:not-allowed}
-.sl-msg{display:flex;gap:12px;padding:14px 18px;border-top:1px solid var(--border)}.sl-msg:first-child{border-top:none}
+.sl-msg.sl-msg-linked{background:var(--neon-bg);border-left:3px solid var(--neon-br)}
+[data-theme="light"] .sl-msg.sl-msg-linked{background:rgba(0,153,92,.04);border-left:3px solid var(--neon-br)}
+.sl-news-cards{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.sl-news-card{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 12px;transition:border-color .2s}
+.sl-news-card:hover{border-color:var(--border2)}
+[data-theme="light"] .sl-news-card{background:var(--bg3);border-color:rgba(0,0,0,.08)}
+.sl-nc-temp{flex-shrink:0}
+.sl-nc-body{flex:1;min-width:0}
+.sl-nc-hl{font-size:13px;font-weight:600;color:var(--text);line-height:1.4;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.sl-nc-meta{font-size:11px;color:var(--dim)}
+.sl-nc-acts{display:flex;gap:6px;flex-shrink:0}
+.sl-nc-btn{flex:0 0 auto;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center}
+.sl-nc-btn svg{width:14px;height:14px}
 .sl-av{width:32px;height:32px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--dim);flex-shrink:0}
 .sl-body{flex:1}.sl-head{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
 .sl-name{font-size:14px;font-weight:600}.sl-time{font-size:12px;color:var(--dim)}
@@ -548,7 +560,53 @@ setH(el,h)}
 function renderTaken(){var el=document.getElementById('v-taken');if(!S.taken.length){setH(el,'<div class="empty">Brak wziętych</div>');return}
 setH(el,'<div class="grid">'+S.taken.map(function(i){return newsCard(i)}).join('')+'</div>')}
 
-async function loadKanal(){var el=document.getElementById('v-kanal');setH(el,'<div class="empty">Ładowanie...</div>');try{var msgs=await fetch('/api/slack/messages').then(function(r){return r.json()});if(!msgs.length){setH(el,'<div class="empty">Brak wiadomości</div>');return}var days={};msgs.forEach(function(m){var k=dayK(m.time);if(!days[k])days[k]={label:dayLbl(m.time),msgs:[]};days[k].msgs.push(m)});var h='';Object.entries(days).forEach(function(e){var g=e[1];h+='<div class="day-row"><div class="day-label">'+esc(g.label)+'</div><div class="day-line"></div></div><div class="panel">'+g.msgs.map(function(m){return'<div class="sl-msg"><div class="sl-av">'+esc(m.initials)+'</div><div class="sl-body"><div class="sl-head"><span class="sl-name">'+esc(m.user)+'</span><span class="sl-time">'+fmtT(m.time)+'</span></div><div class="sl-text">'+(m.text||'\u2014')+'</div></div></div>'}).join('')+'</div>'});setH(el,h)}catch(e){setH(el,'<div class="empty">Błąd: '+esc(e.message)+'</div>')}}
+async function loadKanal(){
+var el=document.getElementById('v-kanal');
+setH(el,'<div class="empty">Ładowanie...</div>');
+try{
+  var msgs=await fetch('/api/slack/messages').then(function(r){return r.json()});
+  if(!msgs.length){setH(el,'<div class="empty">Brak wiadomości</div>');return}
+  var days={};
+  msgs.forEach(function(m){var k=dayK(m.time);if(!days[k])days[k]={label:dayLbl(m.time),msgs:[]};days[k].msgs.push(m)});
+  var h='';
+  Object.entries(days).forEach(function(e){
+    var g=e[1];
+    h+='<div class="day-row"><div class="day-label">'+esc(g.label)+'</div><div class="day-line"></div></div>';
+    h+='<div class="panel">'+g.msgs.map(function(m){
+      var newsCards='';
+      if(m.news&&m.news.length){
+        newsCards=m.news.map(function(n){
+          var t=Math.min(10,Math.max(1,n.temperature||5));
+          var stLabel={free:'Wolny',reserved:'Zarezerwowany',produced:'W produkcji',dismissed:'Odrzucony',rejected:'Odrzucony AI',slack_taken:'Zajęty'}[n.status]||n.status;
+          var stColor=n.status==='produced'?'var(--neon)':n.status==='reserved'?'var(--cyan)':'var(--dim)';
+          var pc=n.produce_count||0;
+          return '<div class="sl-news-card" onclick="doAction('+n.id+',\'produce\',this.querySelector(\'.sl-nc-prod\'))" style="pointer-events:none">'+
+            '<div class="sl-nc-temp" style="color:'+tCr(t)+'">'+ring(t)+'</div>'+
+            '<div class="sl-nc-body">'+
+              '<div class="sl-nc-hl">'+esc(n.headline||n.summary||'')+'</div>'+
+              '<div class="sl-nc-meta"><span style="color:'+stColor+';font-weight:600">'+stLabel+'</span>'+(pc?' · wysłano '+pc+'x':'')+'</div>'+
+            '</div>'+
+            '<div class="sl-nc-acts">'+
+              (n.status==='free'?'<div class="c-btn cy sl-nc-btn" onclick="event.stopPropagation();doAction('+n.id+',\'reserve\')">'+iBookmark+'</div>':'')+
+              (n.status!=='produced'?'<div class="c-btn gr sl-nc-btn sl-nc-prod" onclick="event.stopPropagation();doAction('+n.id+',\'produce\',this)">'+iRocket+(pc?'<span class="pc-pip">'+pc+'</span>':'')+'</div>':
+              '<div style="font-size:11px;font-weight:700;color:var(--neon);padding:0 8px">✓ Wysłano</div>')+
+            '</div>'+
+          '</div>';
+        }).join('');
+      }
+      return '<div class="sl-msg'+(m.news&&m.news.length?' sl-msg-linked':'')+'">'+
+        '<div class="sl-av">'+esc(m.initials)+'</div>'+
+        '<div class="sl-body">'+
+          '<div class="sl-head"><span class="sl-name">'+esc(m.user)+'</span><span class="sl-time">'+fmtT(m.time)+'</span></div>'+
+          '<div class="sl-text">'+(m.text||'—')+'</div>'+
+          (newsCards?'<div class="sl-news-cards">'+newsCards+'</div>':'')+
+        '</div>'+
+      '</div>';
+    }).join('')+'</div>';
+  });
+  setH(el,h);
+}catch(e){setH(el,'<div class="empty">Błąd: '+esc(e.message)+'</div>')}
+}
 
 function renderFeeds(){var el=document.getElementById('v-feeds');var rows=S.feeds.map(function(f){return'<div class="fd-row"><div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:600">'+esc(f.name)+'</div><div style="font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(f.url)+'</div></div><span style="font-size:12px;font-weight:700;color:'+(f.active?'var(--neon)':'var(--dim)')+'">'+(f.active?'ON':'OFF')+'</span><label class="cf-toggle"><input type="checkbox" '+(f.active?'checked':'')+' onchange="toggleFeed('+f.id+')"><span class="cf-toggle-sl"></span></label><button class="btn" onclick="delFeed('+f.id+')" style="color:var(--red)">Usuń</button></div>'}).join('');setH(el,'<div class="panel">'+(rows||'<div class="empty">Brak feedów</div>')+'<div class="fd-form"><input class="fd-in" id="nUrl" type="url" placeholder="https://..." style="flex:2"><input class="fd-in" id="nName" type="text" placeholder="Nazwa" style="flex:1"><button class="btn-run" onclick="addFeed()">+ Dodaj</button></div></div>')}
 

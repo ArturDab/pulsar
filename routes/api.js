@@ -209,8 +209,36 @@ router.get('/stats', async (req, res) => {
 
 // --- SLACK ---
 router.get('/slack/messages', async (req, res) => {
-  try { res.json(await getRecentMessages(40)); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  try {
+    const msgs = await getRecentMessages(60);
+    // Collect all URLs from all messages
+    const allUrls = [...new Set(msgs.flatMap(m => m.urls || []))];
+    let newsMap = {};
+    if (allUrls.length) {
+      // Normalize URLs for matching
+      const norm = u => u.replace(/\/$/, '').toLowerCase();
+      const { rows } = await pool.query(
+        'SELECT id, url, headline, summary, temperature, status, produce_count FROM news_items WHERE url = ANY($1)',
+        [allUrls]
+      );
+      // Also try normalized match
+      const normRows = rows.length < allUrls.length
+        ? (await pool.query(
+            "SELECT id, url, headline, summary, temperature, status, produce_count FROM news_items WHERE lower(rtrim(url,'/')) = ANY($1)",
+            [allUrls.map(norm)]
+          )).rows
+        : [];
+      [...rows, ...normRows].forEach(r => {
+        newsMap[norm(r.url)] = r;
+      });
+    }
+    // Attach matched news to each message
+    const enriched = msgs.map(m => ({
+      ...m,
+      news: (m.urls || []).map(u => newsMap[u.replace(/\/$/, '').toLowerCase()]).filter(Boolean)
+    }));
+    res.json(enriched);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Quick Slack sync - check free items against Slack URLs without running full pipeline
