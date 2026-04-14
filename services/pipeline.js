@@ -106,7 +106,7 @@ async function runPipeline() {
       }
     }
 
-    // Also mark existing free items that appeared on Slack since last run
+    // Also mark existing free items that appeared on Slack since last run (URL match)
     if (slackMap.size > 0) {
       const { rows: freeItems } = await pool.query("SELECT id, url FROM news_items WHERE status = 'free'");
       for (const fi of freeItems) {
@@ -143,14 +143,37 @@ async function runPipeline() {
         continue;
       }
 
+      // Check if this cluster is already taken on Slack
+      const clusterTakenBy = item.cluster_id
+        ? await pool.query(
+            "SELECT reserved_by FROM news_items WHERE cluster_id=$1 AND status='slack_taken' AND reserved_by IS NOT NULL LIMIT 1",
+            [item.cluster_id]
+          ).then(r => r.rows[0]?.reserved_by).catch(() => null)
+        : null;
+
       try {
-        await pool.query(`INSERT INTO news_items (url, title, headline, summary, source, cluster_id, cluster_label, temperature, published_at)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (url) DO NOTHING`,
+        const status = clusterTakenBy ? 'slack_taken' : null;
+        const reservedBy = clusterTakenBy || null;
+        await pool.query(`INSERT INTO news_items (url, title, headline, summary, source, cluster_id, cluster_label, temperature, status, reserved_by, published_at)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,COALESCE($9,'free'),$10,$11) ON CONFLICT (url) DO NOTHING`,
           [url, cleanTitle(orig.title), item.headline || '', item.summary || '', orig.source,
            item.cluster_id || 'inne-tematy', item.cluster_label || 'Inne tematy',
-           Math.min(10, Math.max(1, item.temperature || 5)), orig.published_at]);
+           Math.min(10, Math.max(1, item.temperature || 5)), status, reservedBy, orig.published_at]);
         saved++;
       } catch (e) { console.error('[Pipeline] Insert error:', e.message); }
+    }
+
+    // After clustering: spread slack_taken across clusters (catches cross-source matches)
+    if (slackMap.size > 0) {
+      const { rows: takenItems } = await pool.query(
+        "SELECT DISTINCT cluster_id, reserved_by FROM news_items WHERE status='slack_taken' AND cluster_id IS NOT NULL AND cluster_id != 'inne-tematy' AND reserved_by IS NOT NULL"
+      );
+      for (const t of takenItems) {
+        await pool.query(
+          "UPDATE news_items SET status='slack_taken', reserved_by=$1 WHERE cluster_id=$2 AND status='free'",
+          [t.reserved_by, t.cluster_id]
+        ).catch(() => {});
+      }
     }
 
     if (unmatched > 0) console.warn(`[Pipeline] ${unmatched} URL mismatches`);

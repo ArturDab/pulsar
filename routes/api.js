@@ -209,36 +209,8 @@ router.get('/stats', async (req, res) => {
 
 // --- SLACK ---
 router.get('/slack/messages', async (req, res) => {
-  try {
-    const msgs = await getRecentMessages(60);
-    // Collect all URLs from all messages
-    const allUrls = [...new Set(msgs.flatMap(m => m.urls || []))];
-    let newsMap = {};
-    if (allUrls.length) {
-      // Normalize URLs for matching
-      const norm = u => u.replace(/\/$/, '').toLowerCase();
-      const { rows } = await pool.query(
-        'SELECT id, url, headline, summary, temperature, status, produce_count FROM news_items WHERE url = ANY($1)',
-        [allUrls]
-      );
-      // Also try normalized match
-      const normRows = rows.length < allUrls.length
-        ? (await pool.query(
-            "SELECT id, url, headline, summary, temperature, status, produce_count FROM news_items WHERE lower(rtrim(url,'/')) = ANY($1)",
-            [allUrls.map(norm)]
-          )).rows
-        : [];
-      [...rows, ...normRows].forEach(r => {
-        newsMap[norm(r.url)] = r;
-      });
-    }
-    // Attach matched news to each message
-    const enriched = msgs.map(m => ({
-      ...m,
-      news: (m.urls || []).map(u => newsMap[u.replace(/\/$/, '').toLowerCase()]).filter(Boolean)
-    }));
-    res.json(enriched);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  try { res.json(await getRecentMessages(60)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Quick Slack sync - check free items against Slack URLs without running full pipeline
@@ -251,20 +223,43 @@ router.post('/slack/sync', async (req, res) => {
     // Normalize slack URLs
     const slackMap = new Map();
     for (const [url, user] of rawMap) {
-      const n = url.toLowerCase().replace(/\/+$/, '');
-      slackMap.set(n, user);
+      slackMap.set(url.toLowerCase().replace(/\/+$/, ''), user);
     }
 
-    const { rows: freeItems } = await pool.query("SELECT id, url FROM news_items WHERE status IN ('free','reserved','produced')");
-    let synced = 0;
-    for (const item of freeItems) {
+    // Fetch all active news items with their cluster
+    const { rows: items } = await pool.query(
+      "SELECT id, url, cluster_id, status FROM news_items WHERE status IN ('free','reserved','produced','slack_taken')"
+    );
+
+    // Step 1: find which items directly match a Slack URL
+    const directMatches = new Map(); // item.id → user
+    for (const item of items) {
       const n = item.url.toLowerCase().replace(/\/+$/, '');
-      if (slackMap.has(n)) {
-        await pool.query("UPDATE news_items SET status='slack_taken', reserved_by=$1 WHERE id=$2", [slackMap.get(n), item.id]);
+      if (slackMap.has(n)) directMatches.set(item.id, slackMap.get(n));
+    }
+
+    // Step 2: collect cluster_ids of matched items
+    const takenClusters = new Map(); // cluster_id → user
+    for (const item of items) {
+      if (directMatches.has(item.id) && item.cluster_id && item.cluster_id !== 'inne-tematy') {
+        takenClusters.set(item.cluster_id, directMatches.get(item.id));
+      }
+    }
+
+    // Step 3: mark as slack_taken - direct matches AND all items in the same cluster
+    let synced = 0;
+    for (const item of items) {
+      if (item.status === 'reserved' || item.status === 'produced') continue; // don't overwrite our own reservations
+      const user = directMatches.get(item.id) || (item.cluster_id && takenClusters.get(item.cluster_id));
+      if (user) {
+        await pool.query(
+          "UPDATE news_items SET status='slack_taken', reserved_by=$1 WHERE id=$2 AND status NOT IN ('reserved','produced')",
+          [user, item.id]
+        );
         synced++;
       }
     }
-    console.log(`[Slack sync] Marked ${synced} items as taken`);
+    console.log(`[Slack sync] Marked ${synced} items as taken (${directMatches.size} direct, cluster spread to rest)`);
     res.json({ synced });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
