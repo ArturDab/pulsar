@@ -213,29 +213,31 @@ router.get('/slack/messages', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Quick Slack sync - check free items against Slack URLs without running full pipeline
+// Quick Slack sync - check last 3 days, match by URL/cluster/title, always override if Slack was first
 router.post('/slack/sync', async (req, res) => {
   try {
     const { getSlackUrlMap } = require('../services/slack');
     const { fetchOgTitle } = require('../services/og');
-    const rawMap = await getSlackUrlMap(7);
+    const rawMap = await getSlackUrlMap(3);
     if (!rawMap.size) return res.json({ synced: 0 });
 
     const norm = u => u.toLowerCase().replace(/\/+$/, '');
+    // slackMap: normUrl → { user, ts }
     const slackMap = new Map();
-    for (const [url, user] of rawMap) slackMap.set(norm(url), user);
+    for (const [url, val] of rawMap) slackMap.set(norm(url), val);
 
     const { rows: items } = await pool.query(
-      "SELECT id, url, cluster_id, headline, title, status FROM news_items WHERE status IN ('free','reserved','produced','slack_taken') AND published_at > NOW() - INTERVAL '14 days'"
+      "SELECT id, url, cluster_id, headline, title, status, produce_count, fetched_at FROM news_items WHERE status IN ('free','reserved','produced','slack_taken') AND published_at > NOW() - INTERVAL '3 days'"
     );
 
-    // Step 1: direct URL match
+    // Step 1: direct URL match → { user, ts }
     const directMatches = new Map();
     for (const item of items) {
-      if (slackMap.has(norm(item.url))) directMatches.set(item.id, slackMap.get(norm(item.url)));
+      const m = slackMap.get(norm(item.url));
+      if (m) directMatches.set(item.id, m);
     }
 
-    // Step 2: cluster spread from direct matches
+    // Step 2: cluster spread
     const takenClusters = new Map();
     for (const item of items) {
       if (directMatches.has(item.id) && item.cluster_id && item.cluster_id !== 'inne-tematy') {
@@ -243,14 +245,14 @@ router.post('/slack/sync', async (req, res) => {
       }
     }
 
-    // Step 3: title matching for Slack URLs not in DB
+    // Step 3: title matching for URLs not in DB
     const unmatchedSlackUrls = [...slackMap.entries()].filter(([u]) =>
       !items.some(i => norm(i.url) === u)
     );
     const keywords = w => w.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 3);
     const newsKw = items.map(i => ({ id: i.id, cluster_id: i.cluster_id, kw: new Set(keywords(i.headline || i.title || '')) }));
 
-    for (const [slackUrl, user] of unmatchedSlackUrls.slice(0, 15)) {
+    for (const [slackUrl, val] of unmatchedSlackUrls.slice(0, 15)) {
       const title = await fetchOgTitle(slackUrl);
       if (!title) continue;
       const slackKw = keywords(title);
@@ -262,53 +264,49 @@ router.post('/slack/sync', async (req, res) => {
         if (score > bestScore) { bestScore = score; best = n; }
       }
       if (bestScore >= 0.35 && best) {
-        directMatches.set(best.id, user);
-        if (best.cluster_id && best.cluster_id !== 'inne-tematy') takenClusters.set(best.cluster_id, user);
+        directMatches.set(best.id, val);
+        if (best.cluster_id && best.cluster_id !== 'inne-tematy') takenClusters.set(best.cluster_id, val);
         console.log('[Slack sync] Title match (' + Math.round(bestScore*100) + '%): "' + title + '" → ' + best.cluster_id);
       }
     }
 
-    // Step 4: apply slack_taken - also override reservations not yet sent to Make
-    let synced = 0, conflicts = 0;
-    const { rows: allItems } = await pool.query(
-      "SELECT id, url, cluster_id, status, produce_count FROM news_items WHERE status IN ('free','reserved','produced','slack_taken') AND published_at > NOW() - INTERVAL '14 days'"
-    );
+    // Step 4: apply - override if Slack posted BEFORE or around the time news was fetched
+    let synced = 0, skipped = 0;
+    const allItems = await pool.query(
+      "SELECT id, url, cluster_id, status, produce_count, fetched_at FROM news_items WHERE status IN ('free','reserved','produced','slack_taken') AND published_at > NOW() - INTERVAL '3 days'"
+    ).then(r => r.rows);
+
     for (const item of allItems) {
-      const user = directMatches.get(item.id) || (item.cluster_id && takenClusters.get(item.cluster_id));
-      if (!user) continue;
-      if ((item.status === 'reserved' || item.status === 'produced') && (item.produce_count || 0) > 0) {
-        // Already sent to Make - log conflict but don't override
-        console.warn('[Slack sync] CONFLICT: item ' + item.id + ' already produced, taken by ' + user);
-        conflicts++;
+      const m = directMatches.get(item.id) || (item.cluster_id && takenClusters.get(item.cluster_id));
+      if (!m) continue;
+
+      // If news was already produced AND Slack timestamp is after fetched_at → we were first, skip
+      const slackTs = m.ts || 0;
+      const fetchedTs = new Date(item.fetched_at).getTime();
+      if ((item.status === 'produced') && (item.produce_count || 0) > 0 && slackTs > fetchedTs) {
+        skipped++;
         continue;
       }
-      if (item.status === 'reserved' || item.status === 'produced') {
-        // Reserved/queued but not yet sent - override with explanation
-        await pool.query(
-          "UPDATE news_items SET status='slack_taken', reserved_by=$1, rejection_reason=$2 WHERE id=$3",
-          [user, 'Ten temat zarezerwował wcześniej ' + user + ' na Slacku', item.id]
-        );
-        synced++;
-      } else if (item.status === 'free' || item.status === 'slack_taken') {
-        await pool.query(
-          "UPDATE news_items SET status='slack_taken', reserved_by=$1 WHERE id=$2",
-          [user, item.id]
-        );
-        synced++;
-      }
+
+      const reason = 'Ten temat zarezerwował wcześniej ' + m.user + ' na Slacku';
+      await pool.query(
+        "UPDATE news_items SET status='slack_taken', reserved_by=$1, rejection_reason=$2 WHERE id=$3",
+        [m.user, reason, item.id]
+      );
+      synced++;
     }
 
-    // Step 5: spread clusters to any remaining free items
-    for (const [cid, user] of takenClusters) {
+    // Step 5: spread clusters
+    for (const [cid, m] of takenClusters) {
       const r = await pool.query(
-        "UPDATE news_items SET status='slack_taken', reserved_by=$1 WHERE cluster_id=$2 AND status='free'",
-        [user, cid]
+        "UPDATE news_items SET status='slack_taken', reserved_by=$1, rejection_reason=$2 WHERE cluster_id=$3 AND status='free'",
+        [m.user, 'Ten temat zarezerwował wcześniej ' + m.user + ' na Slacku', cid]
       );
       synced += r.rowCount;
     }
 
-    console.log('[Slack sync] Marked ' + synced + ' items, ' + conflicts + ' conflicts (already produced)');
-    res.json({ synced, conflicts });
+    console.log('[Slack sync] Marked ' + synced + ', skipped ' + skipped + ' (we were first)');
+    res.json({ synced, skipped });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -388,6 +386,19 @@ router.get('/felietony', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM felieton_ideas ORDER BY created_at DESC');
     res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/felietony', async (req, res) => {
+  try {
+    const title = (req.body.title || req.body.game_title || '').trim();
+    if (!title) return res.status(400).json({ error: 'Tytuł wymagany' });
+    const brief = (req.body.brief || '').trim();
+    const { rows } = await pool.query(
+      'INSERT INTO felieton_ideas (title, brief, direction) VALUES ($1, $2, $3) RETURNING *',
+      [title, brief, 'manual']
+    );
+    res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

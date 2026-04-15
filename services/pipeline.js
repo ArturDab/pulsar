@@ -94,7 +94,7 @@ async function runPipeline() {
     try {
       const rawMap = await getSlackUrlMap(7);
       // Normalize slack URLs for matching
-      for (const [url, user] of rawMap) slackMap.set(normUrl(url), user);
+      for (const [url, val] of rawMap) slackMap.set(normUrl(url), val?.user || val);
     } catch {}
 
     for (const item of newItems) {

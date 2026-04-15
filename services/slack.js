@@ -68,11 +68,12 @@ function extractUrls(text) {
   return urls;
 }
 
-async function getSlackUrlMap() {
-  const urlMap = new Map();
+async function getSlackUrlMap(days = 3) {
+  const urlMap = new Map(); // url → { user, ts }
+  const oldest = (Date.now() / 1000) - days * 86400;
   let cursor;
   do {
-    const params = new URLSearchParams({ channel: CHANNEL_ID, limit: '200', ...(cursor ? { cursor } : {}) });
+    const params = new URLSearchParams({ channel: CHANNEL_ID, limit: '200', oldest: String(oldest), ...(cursor ? { cursor } : {}) });
     const res = await fetch(`https://slack.com/api/conversations.history?${params}`, {
       headers: { Authorization: `Bearer ${SLACK_TOKEN}` }
     });
@@ -81,7 +82,8 @@ async function getSlackUrlMap() {
     for (const msg of (data.messages || [])) {
       const urls = extractUrls(msg.text);
       const userName = msg.user ? await resolveUser(msg.user) : 'ktoś';
-      for (const u of urls) { if (!urlMap.has(u)) urlMap.set(u, userName); }
+      const ts = parseFloat(msg.ts) * 1000; // ms
+      for (const u of urls) { if (!urlMap.has(u)) urlMap.set(u, { user: userName, ts }); }
     }
     cursor = data.response_metadata?.next_cursor;
   } while (cursor);

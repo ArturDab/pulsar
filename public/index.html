@@ -368,6 +368,12 @@ footer{max-width:1300px;margin:0 auto;padding:28px 36px 36px;display:flex;justif
     <span id="felGenStatus" style="font-size:12px;color:var(--dim)"></span>
   </div>
 </div>
+<div class="rv-form" style="margin-bottom:0">
+  <h3>Własny pomysł</h3>
+  <input class="rv-input" id="felManTitle" placeholder="Tytuł pomysłu na felieton">
+  <textarea class="rv-input" id="felManBrief" placeholder="Krótki opis, teza, kąt (opcjonalnie)" rows="2" style="resize:vertical"></textarea>
+  <button class="btn-run" onclick="addFelManual()">Dodaj do listy</button>
+</div>
 <div id="felList"></div>
 </div>
 
@@ -469,7 +475,8 @@ async function doAction(id,action,btnEl){
   }
 }
 async function doSend(){var i=document.getElementById('sendUrl'),u=i.value.trim();if(!u)return;try{var r=await fetch('/api/manual-send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});var d=await r.json();if(!r.ok)throw new Error(d.error);i.value=''}catch(e){showErr(e.message)}}
-var _pt=null;async function doSlackSync(){var b=document.getElementById('syncBtn');b.disabled=true;b.textContent='...';try{var r=await fetch('/api/slack/sync',{method:'POST'});var d=await r.json();var label=d.synced?d.synced+' zajętych':'OK';if(d.conflicts)label+=' ('+d.conflicts+' konfliktów)';b.textContent=label;await load();if(S.module==='news'){S.tab='free';setTab('free');}setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},3e3)}catch(e){b.textContent='Błąd';setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}}
+async function addFelManual(){var title=document.getElementById('felManTitle').value.trim();if(!title){showErr('Podaj tytuł pomysłu');return}var brief=document.getElementById('felManBrief').value.trim();try{var r=await fetch('/api/felietony',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game_title:title,title:title,brief:brief})});if(!r.ok){var d=await r.json();throw new Error(d.error)}document.getElementById('felManTitle').value='';document.getElementById('felManBrief').value='';await loadFelietony()}catch(e){showErr(e.message)}}
+var _pt=null;async function doSlackSync(){var b=document.getElementById('syncBtn');b.disabled=true;b.textContent='...';try{var r=await fetch('/api/slack/sync',{method:'POST'});var d=await r.json();var label=d.synced?d.synced+' zajętych':'OK';if(d.skipped)label+=' ('+d.skipped+' pominięto)';b.textContent=label;await load();if(S.module==='news'){S.tab='free';setTab('free');}setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},3e3)}catch(e){b.textContent='Błąd';setTimeout(function(){b.textContent='Sprawdź Slacka';b.disabled=false},2e3)}}
 async function doClear(){if(!confirm('Usunąć wszystkie wolne newsy? Zarezerwowane i w produkcji zostaną.'))return;var b=document.getElementById('clearBtn');b.disabled=true;b.textContent='...';var r=await fetch('/api/news/clear',{method:'POST'});var d=await r.json();b.textContent='Wyczyść';b.disabled=false;if(d.ok){await load();doRun()}}
 async function doRun(){var b=document.getElementById('runBtn');b.disabled=true;b.textContent='Odświeżam...';await fetch('/api/pipeline/run',{method:'POST'});if(_pt)clearInterval(_pt);_pt=setInterval(async function(){try{var p=await fetch('/api/pipeline/status').then(function(r){return r.json()});if(!p.isRunning){clearInterval(_pt);_pt=null;await load();b.disabled=false;b.textContent='Odśwież'}}catch(e){}},3e3)}
 
