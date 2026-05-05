@@ -42,14 +42,6 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 @keyframes badgePop{0%{transform:scale(0) rotate(-12deg)}70%{transform:scale(1.15) rotate(3deg)}100%{transform:scale(1) rotate(0)}}
 @keyframes glowPulse{0%,100%{box-shadow:0 0 0 0 var(--neon-glow)}50%{box-shadow:0 0 0 4px transparent}}
 
-/* Card entrance */
-.card{animation:cardIn .28s cubic-bezier(.22,1,.36,1) both}
-.grid .card:nth-child(1){animation-delay:.02s}
-.grid .card:nth-child(2){animation-delay:.05s}
-.grid .card:nth-child(3){animation-delay:.08s}
-.grid .card:nth-child(4){animation-delay:.11s}
-.grid .card:nth-child(5){animation-delay:.14s}
-.grid .card:nth-child(6){animation-delay:.17s}
 
 /* Card hover - lift with glow trail */
 .card{transition:border-color .2s,transform .25s cubic-bezier(.4,0,.2,1),box-shadow .25s cubic-bezier(.4,0,.2,1)}
@@ -62,8 +54,7 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .c-img img{transition:transform .6s cubic-bezier(.4,0,.2,1)}
 .card:hover .c-img img{transform:scale(1.07)}
 
-/* Temperature ring - pop on mount */
-.c-ring{animation:tempPop .4s cubic-bezier(.22,1,.36,1) both;animation-delay:.15s}
+/* Temperature ring */
 .c-temp{transition:transform .2s cubic-bezier(.4,0,.2,1),box-shadow .2s}
 .card:hover .c-temp{transform:scale(1.06);box-shadow:0 4px 16px rgba(0,0,0,.3)}
 
@@ -106,16 +97,8 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 /* Sort options */
 .sort-opt{transition:all .18s cubic-bezier(.4,0,.2,1)}
 .sort-opt:hover{color:var(--text2);transform:translateY(-1px)}
-.sort-opt.on{animation:pop .22s cubic-bezier(.22,1,.36,1)}
 .sort-opt:active{transform:scale(.93)}
 
-/* Badge pop */
-.c-badge{animation:badgePop .3s cubic-bezier(.22,1,.36,1) both;animation-delay:.2s}
-.pc-pip{animation:badgePop .3s cubic-bezier(.22,1,.36,1)}
-
-/* Status badge on card */
-.card.st-prod .c-badge,
-.card.st-res .c-badge{animation:badgePop .35s cubic-bezier(.22,1,.36,1) both}
 
 /* Error shake */
 .err.show{animation:slideDown .22s cubic-bezier(.22,1,.36,1),errorShake .4s .1s cubic-bezier(.36,.07,.19,.97) both}
@@ -128,16 +111,6 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
 .btn:active{transform:scale(.95)}
 
-/* Log rows fade in */
-.log-row{animation:fadeIn .2s cubic-bezier(.22,1,.36,1) both}
-.log-row:nth-child(1){animation-delay:.03s}
-.log-row:nth-child(2){animation-delay:.06s}
-.log-row:nth-child(3){animation-delay:.09s}
-.log-row:nth-child(4){animation-delay:.12s}
-.log-row:nth-child(5){animation-delay:.15s}
-
-/* Day row slide in */
-.day-row{animation:slideDown .25s cubic-bezier(.22,1,.36,1) both}
 
 /* Felieton items */
 .fel-item{transition:background .2s,padding .2s;border-radius:8px}
@@ -337,6 +310,18 @@ footer{max-width:1300px;margin:0 auto;padding:28px 36px 36px;display:flex;justif
 </style>
 </head>
 <body>
+<div id="login-screen" style="position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:48px 40px;width:380px;max-width:90vw;text-align:center">
+    <div style="display:inline-flex;align-items:center;gap:12px;margin-bottom:8px">
+      <svg width="32" height="32" viewBox="0 0 38 38" fill="none"><circle cx="19" cy="19" r="6" fill="var(--neon)" opacity=".9"/><circle cx="19" cy="19" r="11" stroke="var(--neon)" stroke-width=".7" fill="none" opacity=".3"/><circle cx="19" cy="19" r="16" stroke="var(--cyan)" stroke-width=".5" fill="none" opacity=".15" stroke-dasharray="2.5 4"/></svg>
+      <span style="font-family:var(--display);font-size:22px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:linear-gradient(135deg,var(--neon),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent">Pulsar</span>
+    </div>
+    <div style="font-size:13px;color:var(--dim);margin-bottom:28px;margin-top:4px">Redakcyjny system newsroomowy</div>
+    <input id="loginPass" type="password" class="rv-input" placeholder="Hasło dostępu" style="margin-bottom:8px;text-align:center;letter-spacing:.12em;font-size:16px" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="loginErr" style="color:var(--red);font-size:13px;margin-bottom:8px;min-height:20px"></div>
+    <button class="btn-run" style="width:100%;justify-content:center;display:flex;padding:11px 0" onclick="doLogin()">Zaloguj się</button>
+  </div>
+</div>
 <div class="scanline"></div><div class="glow-tl"></div><div class="glow-br"></div>
 <div class="w">
 <header><div class="logo-group"><div class="logo-mark" onclick="showMod('news')" style="cursor:pointer"><svg width="38" height="38" viewBox="0 0 38 38" fill="none"><circle cx="19" cy="19" r="6" fill="var(--neon)" opacity=".9"/><circle cx="19" cy="19" r="11" stroke="var(--neon)" stroke-width=".7" fill="none" opacity=".3"/><circle cx="19" cy="19" r="16" stroke="var(--cyan)" stroke-width=".5" fill="none" opacity=".15" stroke-dasharray="2.5 4"/></svg></div><div class="logo-text" onclick="showMod('news')" style="cursor:pointer">Pulsar</div><div class="nav-pills"><button class="nav-pill on" onclick="showMod('news')">Newsy</button><button class="nav-pill" onclick="showMod('reviews')">Recenzje</button><button class="nav-pill" onclick="showMod('felietony')">Felietony</button></div></div><div class="hd-right"><div class="live"><div class="live-dot"></div><div class="live-label">Live</div></div><div class="clock" id="clock"></div><button class="theme-btn" id="logsBtn" onclick="showMod('logs')" title="Logi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></button><button class="theme-btn" id="settingsBtn" onclick="showMod('settings')" title="Ustawienia"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button><button class="theme-btn" id="themeBtn"></button></div></header>
@@ -721,7 +706,10 @@ async function produceFel(id){try{var r=await fetch('/api/felietony/'+id+'/produ
 
 async function deleteFel(id){try{await fetch('/api/felietony/'+id,{method:'DELETE'});await loadFelietony()}catch(e){showErr(e.message)}}
 
-setInterval(function(){var h=new Date().getHours();if(S.module==='news'&&h>=6&&h<24)load()},36e5);load()
+async function doLogin(){var p=document.getElementById('loginPass').value,e=document.getElementById('loginErr');e.textContent='';try{var r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:p})});var d=await r.json();if(r.ok){document.getElementById('login-screen').style.display='none';startApp()}else{e.textContent=d.error||'Nieprawidłowe hasło';document.getElementById('loginPass').select()}}catch(ex){e.textContent='Błąd połączenia'}}
+function startApp(){setInterval(function(){var h=new Date().getHours();if(S.module==='news'&&h>=6&&h<24)load()},36e5);load()}
+async function initApp(){try{var r=await fetch('/api/auth/check');if(r.status===401){document.getElementById('login-screen').style.display='flex';setTimeout(function(){document.getElementById('loginPass').focus()},80);return}}catch(e){}document.getElementById('login-screen').style.display='none';startApp()}
+initApp()
 </script>
 </body>
 </html>
