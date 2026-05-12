@@ -548,10 +548,10 @@ async function addFeed(){var u=document.getElementById('nUrl').value.trim(),n=do
 async function toggleFeed(id){await fetch('/api/feeds/'+id+'/toggle',{method:'PATCH'});await load()}
 async function delFeed(id){if(!confirm('Usunąć?'))return;await fetch('/api/feeds/'+id,{method:'DELETE'});await load()}
 
-async function loadSettings(){var keys=['router_instructions','temperature_instructions','training_good','training_bad','felieton_instructions','model_news','model_temperature','model_felieton','openrouter_api_key','news_webhook_url','review_webhook_url','felieton_webhook_url','felieton_search_days'];
+async function loadSettings(){var keys=['router_instructions','temperature_instructions','training_good','training_bad','felieton_instructions','model_news','model_temperature','model_felieton','gemini_api_key','openrouter_api_key','news_webhook_url','review_webhook_url','felieton_webhook_url','felieton_search_days'];
 var res=await Promise.all(keys.map(function(k){return fetch('/api/settings/'+k).then(function(r){return r.json()})}));
 var m={};keys.forEach(function(k,i){m[k]=res[i].value||''});
-var els={routerTa:'router_instructions',tempTa:'temperature_instructions',felTa:'felieton_instructions',orKeyIn:'openrouter_api_key',newsWebhookIn:'news_webhook_url',reviewWebhookIn:'review_webhook_url',felWebhookIn:'felieton_webhook_url'};
+var els={routerTa:'router_instructions',tempTa:'temperature_instructions',felTa:'felieton_instructions',geminiKeyIn:'gemini_api_key',orKeyIn:'openrouter_api_key',newsWebhookIn:'news_webhook_url',reviewWebhookIn:'review_webhook_url',felWebhookIn:'felieton_webhook_url'};
 Object.keys(els).forEach(function(id){var el=document.getElementById(id);if(el&&m[els[id]])el.value=m[els[id]]});
 var dr=document.getElementById('felDaysRange');if(dr){dr.value=m['felieton_search_days']||'7';var dv=document.getElementById('felDaysVal');if(dv)dv.textContent=(m['felieton_search_days']||'7')+' dni';}
 try{S.goodEx=JSON.parse(m['training_good']||'[]')}catch(e){S.goodEx=[]}try{S.badEx=JSON.parse(m['training_bad']||'[]')}catch(e){S.badEx=[]}
@@ -567,6 +567,7 @@ await Promise.all(saves);
 b.textContent='OK';setTimeout(function(){b.textContent='Zapisz modele';b.disabled=false},2e3)}
 async function saveSetting(k,tid,bid){var v=document.getElementById(tid).value,b=document.getElementById(bid);b.textContent='...';b.disabled=true;await fetch('/api/settings/'+k,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='ok';setTimeout(function(){b.textContent='Zapisz';b.disabled=false},2e3)}
 async function saveFelWebhook(){saveWebhook('felieton_webhook_url','felWebhookIn','felWebhookBtn','felWebhookSt')}
+async function saveGeminiKey(){var v=document.getElementById('geminiKeyIn').value.trim(),b=document.getElementById('geminiKeyBtn'),st=document.getElementById('geminiKeySt');if(!v)return;b.textContent='...';b.disabled=true;await fetch('/api/settings/gemini_api_key',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;if(st){st.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';st.style.opacity='1';setTimeout(function(){st.style.opacity='0'},3000)}}
 async function saveApiKey(){var v=document.getElementById('orKeyIn').value.trim(),b=document.getElementById('orKeyBtn'),st=document.getElementById('orKeySt');if(!v)return;b.textContent='...';b.disabled=true;await fetch('/api/settings/openrouter_api_key',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;if(st){st.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';st.style.opacity='1';setTimeout(function(){st.style.opacity='0'},3000)}}
 async function saveFelDays(){var v=document.getElementById('felDaysRange').value,b=document.getElementById('felDaysBtn');b.textContent='...';b.disabled=true;await fetch('/api/settings/felieton_search_days',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;}
 async function saveWebhook(key,inId,btnId,stId){var v=document.getElementById(inId).value.trim(),b=document.getElementById(btnId),st=document.getElementById(stId);if(!v)return;b.textContent='...';b.disabled=true;await fetch('/api/settings/'+key,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;if(st){st.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';st.style.opacity='1';setTimeout(function(){st.style.opacity='0'},3000)}}
@@ -608,9 +609,17 @@ function whBlock(label,hint,inId,key){
     '<span id="',stId,'" style="opacity:0;transition:opacity .4s;display:flex;align-items:center"></span>',
     '</div></div>'].join('');
 }
+var geminiKeyBlock=['<div class="st-block">',
+  '<div class="st-lbl">Google Gemini API Key</div>',
+  '<div class="st-hint">Klucz do Google AI Studio (aistudio.google.com). Główny model AI Pulsara.</div>',
+  '<div style="display:flex;gap:8px;align-items:center;margin-top:6px">',
+  '<input class="rv-input" id="geminiKeyIn" type="password" placeholder="AIza..." style="margin:0;flex:1">',
+  '<button class="btn" id="geminiKeyBtn" onclick="saveGeminiKey()">Zapisz</button>',
+  '<span id="geminiKeySt" style="opacity:0;transition:opacity .4s;display:flex;align-items:center"></span>',
+  '</div></div>'].join('');
 var orKeyBlock=['<div class="st-block">',
   '<div class="st-lbl">OpenRouter API Key</div>',
-  '<div class="st-hint">Wymagany do modeli spoza Gemini (Claude, GPT, Llama itp.)</div>',
+  '<div class="st-hint">Rezerwa: używany gdy Gemini zawiedzie lub do modeli Claude/GPT.</div>',
   '<div style="display:flex;gap:8px;align-items:center;margin-top:6px">',
   '<input class="rv-input" id="orKeyIn" type="password" placeholder="sk-or-..." style="margin:0;flex:1">',
   '<button class="btn" id="orKeyBtn" onclick="saveApiKey()">Zapisz</button>',
@@ -649,7 +658,7 @@ if(S.settingsTab==='newsy'){
   var newsWh=whBlock('Webhook — produkcja newsów','URL webhooka uruchamianego przyciskiem Produkcja na karcie newsa','newsWebhookIn','news_webhook_url');
   var revWh=whBlock('Webhook — produkcja recenzji','URL webhooka uruchamianego przyciskiem Produkcja na karcie recenzji','reviewWebhookIn','review_webhook_url');
   var felWh=whBlock('Webhook — produkcja felietonów','URL webhooka uruchamianego przyciskiem wysłania w generatorze','felWebhookIn','felieton_webhook_url');
-  bodyHtml='<div class="panel">'+orKeyBlock+newsWh+revWh+felWh+'<div class="st-block"><div class="st-lbl">Lista modeli</div><div class="st-hint">Modele pobierane są automatycznie z OpenRouter i Google. Cache 6h.</div><div style="margin-top:10px;display:flex;gap:10px;align-items:center"><button class="btn" onclick="S.modelsCache=null;fetch(\'/api/models/refresh\',{method:\'POST\'}).then(function(){renderSettings()})">Odśwież listę modeli</button></div></div></div>';
+  bodyHtml='<div class="panel">'+geminiKeyBlock+orKeyBlock+newsWh+revWh+felWh+'<div class="st-block"><div class="st-lbl">Lista modeli</div><div class="st-hint">Modele pobierane są automatycznie z OpenRouter i Google. Cache 6h.</div><div style="margin-top:10px;display:flex;gap:10px;align-items:center"><button class="btn" onclick="S.modelsCache=null;fetch(\'/api/models/refresh\',{method:\'POST\'}).then(function(){renderSettings()})">Odśwież listę modeli</button></div></div></div>';
 }
 setH(document.getElementById('v-settings-wrap'),
   '<div class="toolbar"><div class="toolbar-left"><div class="section-title">Ustawienia</div></div>'+tabsHtml+'</div>'+bodyHtml);
