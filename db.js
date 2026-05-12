@@ -62,6 +62,9 @@ async function initDb() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
   `);
+  await pool.query(`INSERT INTO settings (key, value) VALUES ('model_news', 'gemini-2.5-flash') ON CONFLICT (key) DO NOTHING`);
+  await pool.query(`INSERT INTO settings (key, value) VALUES ('model_temperature', 'gemini-2.5-flash') ON CONFLICT (key) DO NOTHING`);
+  await pool.query(`INSERT INTO settings (key, value) VALUES ('model_felieton', 'gemini-2.5-flash') ON CONFLICT (key) DO NOTHING`);
   await pool.query(`INSERT INTO settings (key, value) VALUES ('router_instructions', $1) ON CONFLICT (key) DO NOTHING`, [DEFAULT_ROUTER]);
   await pool.query(`INSERT INTO settings (key, value) VALUES ('temperature_instructions', $1) ON CONFLICT (key) DO NOTHING`, [DEFAULT_TEMPERATURE]);
   await pool.query(`INSERT INTO settings (key, value) VALUES ('felieton_instructions', $1) ON CONFLICT (key) DO NOTHING`, [

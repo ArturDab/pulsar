@@ -25,7 +25,16 @@ async function callAI(prompt, { model, temperature = 0.2, maxTokens = 8192, tool
   if (!model) model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   if (isGeminiModel(model)) {
-    return callGemini(prompt, model, temperature, maxTokens, tools);
+    try {
+      return await callGemini(prompt, model, temperature, maxTokens, tools);
+    } catch (err) {
+      const orKey = await getOpenRouterKey();
+      if (orKey) {
+        console.warn(`[AI] Gemini failed (${err.message.slice(0, 80)}), fallback → OpenRouter`);
+        return callOpenRouter(prompt, 'google/' + model, temperature, maxTokens);
+      }
+      throw err;
+    }
   } else {
     const m = online && !model.includes(':online') && !model.includes(':thinking') ? model + ':online' : model;
     return callOpenRouter(prompt, m, temperature, maxTokens);
