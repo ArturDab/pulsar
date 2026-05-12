@@ -42,14 +42,6 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 @keyframes badgePop{0%{transform:scale(0) rotate(-12deg)}70%{transform:scale(1.15) rotate(3deg)}100%{transform:scale(1) rotate(0)}}
 @keyframes glowPulse{0%,100%{box-shadow:0 0 0 0 var(--neon-glow)}50%{box-shadow:0 0 0 4px transparent}}
 
-/* Card entrance */
-.card{animation:cardIn .28s cubic-bezier(.22,1,.36,1) both}
-.grid .card:nth-child(1){animation-delay:.02s}
-.grid .card:nth-child(2){animation-delay:.05s}
-.grid .card:nth-child(3){animation-delay:.08s}
-.grid .card:nth-child(4){animation-delay:.11s}
-.grid .card:nth-child(5){animation-delay:.14s}
-.grid .card:nth-child(6){animation-delay:.17s}
 
 /* Card hover - lift with glow trail */
 .card{transition:border-color .2s,transform .25s cubic-bezier(.4,0,.2,1),box-shadow .25s cubic-bezier(.4,0,.2,1)}
@@ -62,8 +54,7 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .c-img img{transition:transform .6s cubic-bezier(.4,0,.2,1)}
 .card:hover .c-img img{transform:scale(1.07)}
 
-/* Temperature ring - pop on mount */
-.c-ring{animation:tempPop .4s cubic-bezier(.22,1,.36,1) both;animation-delay:.15s}
+/* Temperature ring */
 .c-temp{transition:transform .2s cubic-bezier(.4,0,.2,1),box-shadow .2s}
 .card:hover .c-temp{transform:scale(1.06);box-shadow:0 4px 16px rgba(0,0,0,.3)}
 
@@ -106,16 +97,8 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 /* Sort options */
 .sort-opt{transition:all .18s cubic-bezier(.4,0,.2,1)}
 .sort-opt:hover{color:var(--text2);transform:translateY(-1px)}
-.sort-opt.on{animation:pop .22s cubic-bezier(.22,1,.36,1)}
 .sort-opt:active{transform:scale(.93)}
 
-/* Badge pop */
-.c-badge{animation:badgePop .3s cubic-bezier(.22,1,.36,1) both;animation-delay:.2s}
-.pc-pip{animation:badgePop .3s cubic-bezier(.22,1,.36,1)}
-
-/* Status badge on card */
-.card.st-prod .c-badge,
-.card.st-res .c-badge{animation:badgePop .35s cubic-bezier(.22,1,.36,1) both}
 
 /* Error shake */
 .err.show{animation:slideDown .22s cubic-bezier(.22,1,.36,1),errorShake .4s .1s cubic-bezier(.36,.07,.19,.97) both}
@@ -128,16 +111,6 @@ header{padding:18px 0;display:flex;align-items:center;justify-content:space-betw
 .btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
 .btn:active{transform:scale(.95)}
 
-/* Log rows fade in */
-.log-row{animation:fadeIn .2s cubic-bezier(.22,1,.36,1) both}
-.log-row:nth-child(1){animation-delay:.03s}
-.log-row:nth-child(2){animation-delay:.06s}
-.log-row:nth-child(3){animation-delay:.09s}
-.log-row:nth-child(4){animation-delay:.12s}
-.log-row:nth-child(5){animation-delay:.15s}
-
-/* Day row slide in */
-.day-row{animation:slideDown .25s cubic-bezier(.22,1,.36,1) both}
 
 /* Felieton items */
 .fel-item{transition:background .2s,padding .2s;border-radius:8px}
@@ -337,6 +310,18 @@ footer{max-width:1300px;margin:0 auto;padding:28px 36px 36px;display:flex;justif
 </style>
 </head>
 <body>
+<div id="login-screen" style="position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:48px 40px;width:380px;max-width:90vw;text-align:center">
+    <div style="display:inline-flex;align-items:center;gap:12px;margin-bottom:8px">
+      <svg width="32" height="32" viewBox="0 0 38 38" fill="none"><circle cx="19" cy="19" r="6" fill="var(--neon)" opacity=".9"/><circle cx="19" cy="19" r="11" stroke="var(--neon)" stroke-width=".7" fill="none" opacity=".3"/><circle cx="19" cy="19" r="16" stroke="var(--cyan)" stroke-width=".5" fill="none" opacity=".15" stroke-dasharray="2.5 4"/></svg>
+      <span style="font-family:var(--display);font-size:22px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:linear-gradient(135deg,var(--neon),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent">Pulsar</span>
+    </div>
+    <div style="font-size:13px;color:var(--dim);margin-bottom:28px;margin-top:4px">Redakcyjny system newsroomowy</div>
+    <input id="loginPass" type="password" class="rv-input" placeholder="Hasło dostępu" style="margin-bottom:8px;text-align:center;letter-spacing:.12em;font-size:16px" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="loginErr" style="color:var(--red);font-size:13px;margin-bottom:8px;min-height:20px"></div>
+    <button class="btn-run" style="width:100%;justify-content:center;display:flex;padding:11px 0" onclick="doLogin()">Zaloguj się</button>
+  </div>
+</div>
 <div class="scanline"></div><div class="glow-tl"></div><div class="glow-br"></div>
 <div class="w">
 <header><div class="logo-group"><div class="logo-mark" onclick="showMod('news')" style="cursor:pointer"><svg width="38" height="38" viewBox="0 0 38 38" fill="none"><circle cx="19" cy="19" r="6" fill="var(--neon)" opacity=".9"/><circle cx="19" cy="19" r="11" stroke="var(--neon)" stroke-width=".7" fill="none" opacity=".3"/><circle cx="19" cy="19" r="16" stroke="var(--cyan)" stroke-width=".5" fill="none" opacity=".15" stroke-dasharray="2.5 4"/></svg></div><div class="logo-text" onclick="showMod('news')" style="cursor:pointer">Pulsar</div><div class="nav-pills"><button class="nav-pill on" onclick="showMod('news')">Newsy</button><button class="nav-pill" onclick="showMod('reviews')">Recenzje</button><button class="nav-pill" onclick="showMod('felietony')">Felietony</button></div></div><div class="hd-right"><div class="live"><div class="live-dot"></div><div class="live-label">Live</div></div><div class="clock" id="clock"></div><button class="theme-btn" id="logsBtn" onclick="showMod('logs')" title="Logi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></button><button class="theme-btn" id="settingsBtn" onclick="showMod('settings')" title="Ustawienia"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button><button class="theme-btn" id="themeBtn"></button></div></header>
@@ -563,10 +548,10 @@ async function addFeed(){var u=document.getElementById('nUrl').value.trim(),n=do
 async function toggleFeed(id){await fetch('/api/feeds/'+id+'/toggle',{method:'PATCH'});await load()}
 async function delFeed(id){if(!confirm('Usunąć?'))return;await fetch('/api/feeds/'+id,{method:'DELETE'});await load()}
 
-async function loadSettings(){var keys=['router_instructions','temperature_instructions','training_good','training_bad','felieton_instructions','model_news','model_temperature','model_felieton','openrouter_api_key','news_webhook_url','review_webhook_url','felieton_webhook_url','felieton_search_days'];
+async function loadSettings(){var keys=['router_instructions','temperature_instructions','training_good','training_bad','felieton_instructions','model_news','model_temperature','model_felieton','gemini_api_key','openrouter_api_key','news_webhook_url','review_webhook_url','felieton_webhook_url','felieton_search_days'];
 var res=await Promise.all(keys.map(function(k){return fetch('/api/settings/'+k).then(function(r){return r.json()})}));
 var m={};keys.forEach(function(k,i){m[k]=res[i].value||''});
-var els={routerTa:'router_instructions',tempTa:'temperature_instructions',felTa:'felieton_instructions',orKeyIn:'openrouter_api_key',newsWebhookIn:'news_webhook_url',reviewWebhookIn:'review_webhook_url',felWebhookIn:'felieton_webhook_url'};
+var els={routerTa:'router_instructions',tempTa:'temperature_instructions',felTa:'felieton_instructions',geminiKeyIn:'gemini_api_key',orKeyIn:'openrouter_api_key',newsWebhookIn:'news_webhook_url',reviewWebhookIn:'review_webhook_url',felWebhookIn:'felieton_webhook_url'};
 Object.keys(els).forEach(function(id){var el=document.getElementById(id);if(el&&m[els[id]])el.value=m[els[id]]});
 var dr=document.getElementById('felDaysRange');if(dr){dr.value=m['felieton_search_days']||'7';var dv=document.getElementById('felDaysVal');if(dv)dv.textContent=(m['felieton_search_days']||'7')+' dni';}
 try{S.goodEx=JSON.parse(m['training_good']||'[]')}catch(e){S.goodEx=[]}try{S.badEx=JSON.parse(m['training_bad']||'[]')}catch(e){S.badEx=[]}
@@ -582,6 +567,7 @@ await Promise.all(saves);
 b.textContent='OK';setTimeout(function(){b.textContent='Zapisz modele';b.disabled=false},2e3)}
 async function saveSetting(k,tid,bid){var v=document.getElementById(tid).value,b=document.getElementById(bid);b.textContent='...';b.disabled=true;await fetch('/api/settings/'+k,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='ok';setTimeout(function(){b.textContent='Zapisz';b.disabled=false},2e3)}
 async function saveFelWebhook(){saveWebhook('felieton_webhook_url','felWebhookIn','felWebhookBtn','felWebhookSt')}
+async function saveGeminiKey(){var v=document.getElementById('geminiKeyIn').value.trim(),b=document.getElementById('geminiKeyBtn'),st=document.getElementById('geminiKeySt');if(!v)return;b.textContent='...';b.disabled=true;await fetch('/api/settings/gemini_api_key',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;if(st){st.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';st.style.opacity='1';setTimeout(function(){st.style.opacity='0'},3000)}}
 async function saveApiKey(){var v=document.getElementById('orKeyIn').value.trim(),b=document.getElementById('orKeyBtn'),st=document.getElementById('orKeySt');if(!v)return;b.textContent='...';b.disabled=true;await fetch('/api/settings/openrouter_api_key',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;if(st){st.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';st.style.opacity='1';setTimeout(function(){st.style.opacity='0'},3000)}}
 async function saveFelDays(){var v=document.getElementById('felDaysRange').value,b=document.getElementById('felDaysBtn');b.textContent='...';b.disabled=true;await fetch('/api/settings/felieton_search_days',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;}
 async function saveWebhook(key,inId,btnId,stId){var v=document.getElementById(inId).value.trim(),b=document.getElementById(btnId),st=document.getElementById(stId);if(!v)return;b.textContent='...';b.disabled=true;await fetch('/api/settings/'+key,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});b.textContent='Zapisz';b.disabled=false;if(st){st.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--neon)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';st.style.opacity='1';setTimeout(function(){st.style.opacity='0'},3000)}}
@@ -623,9 +609,17 @@ function whBlock(label,hint,inId,key){
     '<span id="',stId,'" style="opacity:0;transition:opacity .4s;display:flex;align-items:center"></span>',
     '</div></div>'].join('');
 }
+var geminiKeyBlock=['<div class="st-block">',
+  '<div class="st-lbl">Google Gemini API Key</div>',
+  '<div class="st-hint">Klucz do Google AI Studio (aistudio.google.com). Główny model AI Pulsara.</div>',
+  '<div style="display:flex;gap:8px;align-items:center;margin-top:6px">',
+  '<input class="rv-input" id="geminiKeyIn" type="password" placeholder="AIza..." style="margin:0;flex:1">',
+  '<button class="btn" id="geminiKeyBtn" onclick="saveGeminiKey()">Zapisz</button>',
+  '<span id="geminiKeySt" style="opacity:0;transition:opacity .4s;display:flex;align-items:center"></span>',
+  '</div></div>'].join('');
 var orKeyBlock=['<div class="st-block">',
   '<div class="st-lbl">OpenRouter API Key</div>',
-  '<div class="st-hint">Wymagany do modeli spoza Gemini (Claude, GPT, Llama itp.)</div>',
+  '<div class="st-hint">Rezerwa: używany gdy Gemini zawiedzie lub do modeli Claude/GPT.</div>',
   '<div style="display:flex;gap:8px;align-items:center;margin-top:6px">',
   '<input class="rv-input" id="orKeyIn" type="password" placeholder="sk-or-..." style="margin:0;flex:1">',
   '<button class="btn" id="orKeyBtn" onclick="saveApiKey()">Zapisz</button>',
@@ -664,7 +658,7 @@ if(S.settingsTab==='newsy'){
   var newsWh=whBlock('Webhook — produkcja newsów','URL webhooka uruchamianego przyciskiem Produkcja na karcie newsa','newsWebhookIn','news_webhook_url');
   var revWh=whBlock('Webhook — produkcja recenzji','URL webhooka uruchamianego przyciskiem Produkcja na karcie recenzji','reviewWebhookIn','review_webhook_url');
   var felWh=whBlock('Webhook — produkcja felietonów','URL webhooka uruchamianego przyciskiem wysłania w generatorze','felWebhookIn','felieton_webhook_url');
-  bodyHtml='<div class="panel">'+orKeyBlock+newsWh+revWh+felWh+'<div class="st-block"><div class="st-lbl">Lista modeli</div><div class="st-hint">Modele pobierane są automatycznie z OpenRouter i Google. Cache 6h.</div><div style="margin-top:10px;display:flex;gap:10px;align-items:center"><button class="btn" onclick="S.modelsCache=null;fetch(\'/api/models/refresh\',{method:\'POST\'}).then(function(){renderSettings()})">Odśwież listę modeli</button></div></div></div>';
+  bodyHtml='<div class="panel">'+geminiKeyBlock+orKeyBlock+newsWh+revWh+felWh+'<div class="st-block"><div class="st-lbl">Lista modeli</div><div class="st-hint">Modele pobierane są automatycznie z OpenRouter i Google. Cache 6h.</div><div style="margin-top:10px;display:flex;gap:10px;align-items:center"><button class="btn" onclick="S.modelsCache=null;fetch(\'/api/models/refresh\',{method:\'POST\'}).then(function(){renderSettings()})">Odśwież listę modeli</button></div></div></div>';
 }
 setH(document.getElementById('v-settings-wrap'),
   '<div class="toolbar"><div class="toolbar-left"><div class="section-title">Ustawienia</div></div>'+tabsHtml+'</div>'+bodyHtml);
@@ -721,7 +715,10 @@ async function produceFel(id){try{var r=await fetch('/api/felietony/'+id+'/produ
 
 async function deleteFel(id){try{await fetch('/api/felietony/'+id,{method:'DELETE'});await loadFelietony()}catch(e){showErr(e.message)}}
 
-setInterval(function(){var h=new Date().getHours();if(S.module==='news'&&h>=6&&h<24)load()},36e5);load()
+async function doLogin(){var p=document.getElementById('loginPass').value,e=document.getElementById('loginErr');e.textContent='';try{var r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:p})});var d=await r.json();if(r.ok){document.getElementById('login-screen').style.display='none';startApp()}else{e.textContent=d.error||'Nieprawidłowe hasło';document.getElementById('loginPass').select()}}catch(ex){e.textContent='Błąd połączenia'}}
+function startApp(){setInterval(function(){var h=new Date().getHours();if(S.module==='news'&&h>=6&&h<24)load()},36e5);load()}
+async function initApp(){try{var r=await fetch('/api/auth/check');if(r.status===401){document.getElementById('login-screen').style.display='flex';setTimeout(function(){document.getElementById('loginPass').focus()},80);return}}catch(e){}document.getElementById('login-screen').style.display='none';startApp()}
+initApp()
 </script>
 </body>
 </html>

@@ -12,6 +12,15 @@ function isGeminiModel(model) {
   return model && model.startsWith('gemini-');
 }
 
+async function getGeminiKey() {
+  try {
+    const { pool } = require('../db');
+    const { rows } = await pool.query("SELECT value FROM settings WHERE key='gemini_api_key'");
+    if (rows[0]?.value) return rows[0].value;
+  } catch {}
+  return process.env.GEMINI_API_KEY || null;
+}
+
 async function getOpenRouterKey() {
   try {
     const { pool } = require('../db');
@@ -25,7 +34,16 @@ async function callAI(prompt, { model, temperature = 0.2, maxTokens = 8192, tool
   if (!model) model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   if (isGeminiModel(model)) {
-    return callGemini(prompt, model, temperature, maxTokens, tools);
+    try {
+      return await callGemini(prompt, model, temperature, maxTokens, tools);
+    } catch (err) {
+      const orKey = await getOpenRouterKey();
+      if (orKey) {
+        console.warn(`[AI] Gemini failed (${err.message.slice(0, 80)}), fallback → OpenRouter`);
+        return callOpenRouter(prompt, 'google/' + model, temperature, maxTokens);
+      }
+      throw err;
+    }
   } else {
     const m = online && !model.includes(':online') && !model.includes(':thinking') ? model + ':online' : model;
     return callOpenRouter(prompt, m, temperature, maxTokens);
@@ -33,8 +51,8 @@ async function callAI(prompt, { model, temperature = 0.2, maxTokens = 8192, tool
 }
 
 async function callGemini(prompt, model, temperature, maxTokens, tools, retryCount = 0) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+  const apiKey = await getGeminiKey();
+  if (!apiKey) throw new Error('Brak klucza Gemini API. Dodaj go w Ustawieniach → Konfiguracja.');
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const body = {
