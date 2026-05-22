@@ -433,22 +433,48 @@ async function load(){try{var[items,tk,fd,st,pi]=await Promise.all([fetch('/api/
 function render(){document.getElementById('mFree').textContent=S.stats.free||0;document.getElementById('mRes').textContent=S.stats.reserved||0;document.getElementById('mProd').textContent=S.stats.produced||0;document.getElementById('mFeeds').textContent=S.feeds.filter(function(f){return f.active}).length;var lr=S.pipeline.lastRun,ts=lr?(lr.finished_at||lr.started_at):null;document.getElementById('sRun').textContent='run: '+ago(ts);if(S.tab==='free')renderFree();if(S.tab==='taken')renderTaken();if(S.tab==='feeds')renderFeeds()}
 
 var iCheck='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+function patchCard(id){
+  var el=document.getElementById('card-'+id);
+  if(!el)return;
+  var item=S.items.find(function(i){return i.id===id})||S.taken.find(function(i){return i.id===id});
+  if(!item)return;
+  item._sources=parseInt(el.getAttribute('data-sources')||'1');
+  var tmp=document.createElement('div');
+  tmp.innerHTML=newsCard(item);
+  el.parentNode.replaceChild(tmp.firstChild,el);
+}
+function patchStats(){
+  var all=S.items;
+  var f=all.filter(function(i){return i.status==='free'}).length;
+  var rs=all.filter(function(i){return i.status==='reserved'}).length;
+  var pr=all.filter(function(i){return i.status==='produced'}).length;
+  document.getElementById('mFree').textContent=f;
+  document.getElementById('mRes').textContent=rs;
+  document.getElementById('mProd').textContent=pr;
+  var sc=document.getElementById('secCount');if(sc)sc.textContent=f+' newsów';
+}
+
 async function doAction(id,action,btnEl){
   try{
-    if(action==='produce'&&btnEl){
-      btnEl.disabled=true;btnEl.style.opacity='.6';
-    }
+    if(action==='produce'&&btnEl){btnEl.disabled=true;btnEl.style.opacity='.6';}
     var r=await fetch('/api/news/'+id+'/'+action,{method:'POST'});
     var d=await r.json();
     if(!r.ok)throw new Error(d.error);
+    var statusMap={reserve:'reserved',unreserve:'free',produce:'produced',dismiss:'dismissed'};
+    var newStatus=statusMap[action];
+    var item=S.items.find(function(i){return i.id===id})||S.taken.find(function(i){return i.id===id});
+    if(item&&newStatus){
+      item.status=newStatus;
+      if(action==='produce')item.produce_count=(item.produce_count||0)+1;
+    }
     if(action==='produce'&&btnEl){
       btnEl.innerHTML=iCheck+' Wysłano';
       btnEl.style.opacity='1';
       btnEl.style.borderColor='var(--neon-br)';btnEl.style.color='var(--neon)';
-      setTimeout(function(){load()},1200);
-    }else{
-      await load();
     }
+    patchCard(id);
+    patchStats();
   }catch(e){
     if(action==='produce'&&btnEl){
       btnEl.innerHTML=iX+' Błąd';
@@ -478,7 +504,7 @@ var hl=item.headline||item.cluster_label||item.summary||'';
 var sum=item.summary&&item.summary!==hl?item.summary:'';
 var hasImg=item.og_image;
 var srcBadge=sc>1?'<span class="c-src-count">'+sc+' źródeł</span>':'';
-return'<div class="'+cls+'">'+ov+
+return'<div class="'+cls+'" id="card-'+item.id+'" data-sources="'+sc+'">'+ov+
 (!isInactive?'<div class="c-dismiss" onclick="doAction('+item.id+',\'dismiss\')" title="Odrzuć">'+iX+'</div>':'')+
 '<div class="c-img">'+(hasImg?'<img src="'+esc(item.og_image)+'" loading="lazy" onerror="this.outerHTML=\'<div class=c-noimg>no img</div>\'">':'<div class="c-noimg">no img</div>')+tempChip(t)+'</div>'+
 '<div class="c-body">'+
@@ -544,9 +570,10 @@ async function loadKanal(){var el=document.getElementById('v-kanal');setH(el,'<d
 
 function renderFeeds(){var el=document.getElementById('v-feeds');var rows=S.feeds.map(function(f){return'<div class="fd-row"><div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:600">'+esc(f.name)+'</div><div style="font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(f.url)+'</div></div><span style="font-size:12px;font-weight:700;color:'+(f.active?'var(--neon)':'var(--dim)')+'">'+(f.active?'ON':'OFF')+'</span><label class="cf-toggle"><input type="checkbox" '+(f.active?'checked':'')+' onchange="toggleFeed('+f.id+')"><span class="cf-toggle-sl"></span></label><button class="btn" onclick="delFeed('+f.id+')" style="color:var(--red)">Usuń</button></div>'}).join('');setH(el,'<div class="panel">'+(rows||'<div class="empty">Brak feedów</div>')+'<div class="fd-form"><input class="fd-in" id="nUrl" type="url" placeholder="https://..." style="flex:2"><input class="fd-in" id="nName" type="text" placeholder="Nazwa" style="flex:1"><button class="btn-run" onclick="addFeed()">+ Dodaj</button></div></div>')}
 
-async function addFeed(){var u=document.getElementById('nUrl').value.trim(),n=document.getElementById('nName').value.trim();if(!u)return;var r=await fetch('/api/feeds',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u,name:n})});if(r.ok){document.getElementById('nUrl').value='';document.getElementById('nName').value='';await load()}else{var d=await r.json();showErr(d.error)}}
-async function toggleFeed(id){await fetch('/api/feeds/'+id+'/toggle',{method:'PATCH'});await load()}
-async function delFeed(id){if(!confirm('Usunąć?'))return;await fetch('/api/feeds/'+id,{method:'DELETE'});await load()}
+async function reloadFeeds(){var fd=await fetch('/api/feeds').then(function(r){return r.json()});S.feeds=fd;document.getElementById('mFeeds').textContent=fd.filter(function(f){return f.active}).length;renderFeeds()}
+async function addFeed(){var u=document.getElementById('nUrl').value.trim(),n=document.getElementById('nName').value.trim();if(!u)return;var r=await fetch('/api/feeds',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u,name:n})});if(r.ok){document.getElementById('nUrl').value='';document.getElementById('nName').value='';await reloadFeeds()}else{var d=await r.json();showErr(d.error)}}
+async function toggleFeed(id){await fetch('/api/feeds/'+id+'/toggle',{method:'PATCH'});await reloadFeeds()}
+async function delFeed(id){if(!confirm('Usunąć?'))return;await fetch('/api/feeds/'+id,{method:'DELETE'});await reloadFeeds()}
 
 async function loadSettings(){var keys=['router_instructions','temperature_instructions','training_good','training_bad','felieton_instructions','model_news','model_temperature','model_felieton','gemini_api_key','openrouter_api_key','news_webhook_url','review_webhook_url','felieton_webhook_url','felieton_search_days'];
 var res=await Promise.all(keys.map(function(k){return fetch('/api/settings/'+k).then(function(r){return r.json()})}));
