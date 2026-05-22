@@ -83,7 +83,7 @@ async function getSlackUrlMap(days = 3) {
       const urls = extractUrls(msg.text);
       const userName = msg.user ? await resolveUser(msg.user) : 'ktoś';
       const ts = parseFloat(msg.ts) * 1000; // ms
-      for (const u of urls) { if (!urlMap.has(u)) urlMap.set(u, { user: userName, ts }); }
+      for (const u of urls) { if (!urlMap.has(u)) urlMap.set(u, { user: userName, ts, msgText: msg.text || '' }); }
     }
     cursor = data.response_metadata?.next_cursor;
   } while (cursor);
@@ -95,7 +95,10 @@ async function getSlackUrls() {
   return new Set(map.keys());
 }
 
-async function getRecentMessages(limit = 40) {
+const SKIP_SUBTYPES = new Set(['channel_join','channel_leave','channel_archive','channel_unarchive','channel_topic','channel_purpose','channel_name','pinned_item','unpinned_item']);
+
+async function getRecentMessages(limit = 80) {
+  if (!SLACK_TOKEN) throw new Error('SLACK_BOT_TOKEN not set');
   const res = await fetch(
     `https://slack.com/api/conversations.history?channel=${CHANNEL_ID}&limit=${limit}`,
     { headers: { Authorization: `Bearer ${SLACK_TOKEN}` } }
@@ -104,9 +107,10 @@ async function getRecentMessages(limit = 40) {
   if (!data.ok) throw new Error(`Slack: ${data.error}`);
   const messages = [];
   for (const msg of (data.messages || [])) {
-    if (msg.subtype) continue;
-    let userName = msg.user || 'unknown';
-    try { userName = await resolveUser(msg.user); } catch {}
+    if (msg.subtype && SKIP_SUBTYPES.has(msg.subtype)) continue;
+    if (msg.bot_id && !msg.user) continue;
+    let userName = msg.user || msg.username || 'unknown';
+    if (msg.user) try { userName = await resolveUser(msg.user); } catch {}
     const msgText = msg.text || '';
     messages.push({
       ts: msg.ts,
@@ -114,8 +118,36 @@ async function getRecentMessages(limit = 40) {
       user: userName,
       initials: initials(userName),
       text: formatSlackText(msgText),
-      urls: extractUrls(msgText)
+      urls: extractUrls(msgText),
+      replyCount: msg.reply_count || 0
     });
+    if ((msg.reply_count || 0) > 0) {
+      try {
+        const tr = await fetch(
+          `https://slack.com/api/conversations.replies?channel=${CHANNEL_ID}&ts=${msg.ts}&limit=20`,
+          { headers: { Authorization: `Bearer ${SLACK_TOKEN}` } }
+        );
+        const td = await tr.json();
+        if (td.ok) {
+          for (const reply of (td.messages || []).slice(1)) {
+            if (reply.subtype && SKIP_SUBTYPES.has(reply.subtype)) continue;
+            if (reply.bot_id && !reply.user) continue;
+            let ru = reply.user || 'unknown';
+            if (reply.user) try { ru = await resolveUser(reply.user); } catch {}
+            const rt = reply.text || '';
+            messages.push({
+              ts: reply.ts,
+              time: new Date(parseFloat(reply.ts) * 1000).toISOString(),
+              user: ru,
+              initials: initials(ru),
+              text: formatSlackText(rt),
+              urls: extractUrls(rt),
+              isReply: true
+            });
+          }
+        }
+      } catch (e) { console.error('[Slack] Thread error:', e.message); }
+    }
   }
   return messages;
 }

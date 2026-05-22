@@ -252,10 +252,17 @@ router.post('/slack/sync', async (req, res) => {
     const keywords = w => w.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 3);
     const newsKw = items.map(i => ({ id: i.id, cluster_id: i.cluster_id, kw: new Set(keywords(i.headline || i.title || '')) }));
 
-    for (const [slackUrl, val] of unmatchedSlackUrls.slice(0, 15)) {
-      const title = await fetchOgTitle(slackUrl);
-      if (!title) continue;
-      const slackKw = keywords(title);
+    const isXLink = u => /x\.com\/|twitter\.com\/|t\.co\//.test(u);
+    for (const [slackUrl, val] of unmatchedSlackUrls.slice(0, 20)) {
+      let titleSrc;
+      if (isXLink(slackUrl)) {
+        titleSrc = (val.msgText || '').replace(/<[^>]*>/g, ' ').replace(/https?:\/\/\S+/g, ' ').trim();
+        if (titleSrc.length < 4) continue;
+      } else {
+        titleSrc = await fetchOgTitle(slackUrl);
+        if (!titleSrc) continue;
+      }
+      const slackKw = keywords(titleSrc);
       if (slackKw.length < 2) continue;
       let best = null, bestScore = 0;
       for (const n of newsKw) {

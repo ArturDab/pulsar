@@ -6,6 +6,7 @@ const { callAI, parseJsonFromAI } = require('./ai');
 const { scrapeOgImages } = require('./og');
 
 let lastRun = null, isRunning = false, isRefiltering = false;
+const PIPELINE_TIMEOUT_MS = 10 * 60 * 1000;
 
 // In-memory event log (last 100 events)
 const eventLog = [];
@@ -65,6 +66,10 @@ async function runPipeline() {
   if (isRunning) return;
   isRunning = true;
   let runId = null;
+  const _timeout = setTimeout(() => {
+    logEvent('error', 'Pipeline timeout — reset flagi po 10 min');
+    isRunning = false;
+  }, PIPELINE_TIMEOUT_MS);
 
   try {
     const { rows: [run] } = await pool.query('INSERT INTO pipeline_runs DEFAULT VALUES RETURNING id');
@@ -184,7 +189,7 @@ async function runPipeline() {
   } catch (err) {
     logEvent('error', 'Pipeline błąd krytyczny', err.message);
     await closeRun(runId, 0, 0, err.message);
-  } finally { lastRun = new Date(); isRunning = false; }
+  } finally { clearTimeout(_timeout); lastRun = new Date(); isRunning = false; }
 }
 
 async function closeRun(id, fetched, saved, error = null) {

@@ -42,6 +42,7 @@ GTA, Elden Ring, Nintendo, PlayStation, Xbox, Minecraft, Fortnite = wyżej. Niez
 ${tempScale}
 
 Istniejące klastry (reużyj cluster_id jeśli pasuje):
+ZASADA KLASTROWANIA: Łącz w ten sam klaster WYŁĄCZNIE artykuły opisujące dokładnie to samo zdarzenie (tę samą premierę, ten sam patch, ten sam incydent). Różne zdarzenia dotyczące tej samej gry (np. dwa różne patche, premiera vs. recenzja, zapowiedź vs. plotka, trailer vs. gameplay) ZAWSZE przypisuj do osobnych klastrów. NIE łącz newsów tylko dlatego, że dotyczą tej samej gry lub serii.
 ${clusterCtx}
 
 Artykuły do oceny (${batch.length} sztuk):
