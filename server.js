@@ -4,7 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const cron = require('node-cron');
 const path = require('path');
-const { initDb } = require('./db');
+const { initDb, pool } = require('./db');
 const apiRouter = require('./routes/api');
 const { runPipeline } = require('./services/pipeline');
 
@@ -84,7 +84,10 @@ cron.schedule('*/30 * * * *', () => {
 const PORT = process.env.PORT || 3000;
 
 initDb()
-  .then(() => {
+  .then(async () => {
+    await pool.query("UPDATE news_items SET cluster_id = NULL, cluster_label = NULL WHERE status != 'rejected'")
+      .then(r => console.log(`[Migrate] Odklastrowano ${r.rowCount} newsów`))
+      .catch(e => console.error('[Migrate] Błąd odklastrowania:', e.message));
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`[Server] Running on port ${PORT}`);
       runPipeline();
